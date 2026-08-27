@@ -1,13 +1,14 @@
 FROM nikolaik/python-nodejs:python3.11-nodejs18
 
-RUN apt-get update -y && apt-get upgrade -y \
+RUN apt-get update -y \
     && apt-get install -y --no-install-recommends ffmpeg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
 COPY . /app/
-WORKDIR /app/
 
-RUN pip3 install --no-cache-dir --upgrade --requirement requirements.txt
+RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
 
-CMD bash fallen
+CMD ["bash", "Shahm"]

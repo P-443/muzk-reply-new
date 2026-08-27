@@ -11,6 +11,16 @@ ydl_opts = {
     "quiet": True,
     "no_warnings": True,
     "prefer_ffmpeg": True,
+    "retries": 10,
+    "fragment_retries": 10,
+    "extractor_retries": 3,
+    # Bypass YouTube "Sign in to confirm you're not a bot" without cookies:
+    # use player clients that don't require login/PO tokens, in order of preference.
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["visionos", "tv_downgraded", "tv", "web_embedded"],
+        }
+    },
     "postprocessors": [
         {
             "key": "FFmpegExtractAudio",

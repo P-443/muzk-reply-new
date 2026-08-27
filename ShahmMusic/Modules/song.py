@@ -20,7 +20,14 @@ async def song(_, message: Message):
     m = await message.reply_text("⌔︙ جارٍ التحميل...")
 
     query = "".join(" " + str(i) for i in message.command[1:])
-    ydl_opts = {"format": "bestaudio[ext=m4a]"}
+    ydl_opts = {
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["visionos", "tv_downgraded", "tv", "web_embedded"],
+            }
+        },
+    }
     try:
         results = YoutubeSearch(query, max_results=5).to_dict()
         link = f"https://youtube.com{results[0]['url_suffix']}"

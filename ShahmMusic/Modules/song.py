@@ -27,7 +27,7 @@ async def song(_, message: Message):
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["visionos", "tv_downgraded", "tv", "web_embedded"],
+                "player_client": ["web", "visionos", "tv_downgraded", "tv", "web_embedded"],
             }
         },
     }

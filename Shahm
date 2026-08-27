@@ -1,1 +1,12 @@
-python3 -m ShahmMusic
+#!/usr/bin/env bash
+# Start the bgutil PO-token provider in the background, then run the bot.
+set -e
+
+if [ -f /opt/bgutil-pot/server/build/main.js ]; then
+    (cd /opt/bgutil-pot/server && node build/main.js >/tmp/bgutil.log 2>&1 &)
+    # give the local provider a moment to start listening on 127.0.0.1:4416
+    sleep 3
+fi
+
+cd /app
+exec python3 -m ShahmMusic

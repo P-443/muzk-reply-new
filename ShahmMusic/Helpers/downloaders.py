@@ -2,9 +2,10 @@ import os
 
 from yt_dlp import YoutubeDL
 
-# Optional: cookies to bypass YouTube's bot-check on datacenter IPs.
-# Drop a "cookies.txt" in the repo root, or set YTDLP_COOKIES=/path/cookies.txt
-# (the bot still runs without it, just with more download failures).
+# Optional cookies.txt fallback (strongest guarantee against YouTube's
+# datacenter bot-check). Drop a "cookies.txt" in the repo root, or set
+# YTDLP_COOKIES=/path/cookies.txt. Not required: the bgutil PO-token provider
+# is used automatically when the container runs it.
 _COOKIES = os.getenv("YTDLP_COOKIES")
 
 ydl_opts = {
@@ -18,9 +19,11 @@ ydl_opts = {
     "retries": 10,
     "fragment_retries": 10,
     "extractor_retries": 3,
+    # "web" goes first so the bgutil PO-token provider (or cookies) is used;
+    # the rest are no-auth fallbacks in case web fails.
     "extractor_args": {
         "youtube": {
-            "player_client": ["visionos", "tv_downgraded", "tv", "web_embedded"],
+            "player_client": ["web", "visionos", "tv_downgraded", "tv", "web_embedded"],
         }
     },
     "postprocessors": [
@@ -37,14 +40,6 @@ if not _COOKIES and os.path.exists("cookies.txt"):
 
 if _COOKIES and os.path.exists(_COOKIES):
     ydl_opts["cookiefile"] = _COOKIES
-    # With cookies, prefer the normal web client (best formats) and keep the
-    # no-auth clients as fallback.
-    ydl_opts["extractor_args"]["youtube"]["player_client"] = [
-        "web",
-        "visionos",
-        "tv",
-        "web_embedded",
-    ]
 
 ydl = YoutubeDL(ydl_opts)
 

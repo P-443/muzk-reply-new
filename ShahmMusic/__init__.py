@@ -7,6 +7,15 @@ import time
 from pyrogram import Client, filters
 from pytgcalls import PyTgCalls
 
+# Telegram now assigns channel IDs larger than 2^31, but pyrogram 2.0.97
+# hardcodes a 32-bit bound and raises "Peer id invalid" for them. Widen the
+# bound (same values as the maintained pyrofork fork) so updates from big-ID
+# channels resolve instead of crashing handle_updates.
+import pyrogram.utils
+
+if pyrogram.utils.MIN_CHANNEL_ID == -1002147483647:
+    pyrogram.utils.MIN_CHANNEL_ID = -100999999999999
+
 import config
 
 StartTime = time.time()

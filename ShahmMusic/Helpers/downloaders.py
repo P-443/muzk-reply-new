@@ -1,7 +1,11 @@
-
 import os
 
 from yt_dlp import YoutubeDL
+
+# Optional: cookies to bypass YouTube's bot-check on datacenter IPs.
+# Drop a "cookies.txt" in the repo root, or set YTDLP_COOKIES=/path/cookies.txt
+# (the bot still runs without it, just with more download failures).
+_COOKIES = os.getenv("YTDLP_COOKIES")
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -14,8 +18,6 @@ ydl_opts = {
     "retries": 10,
     "fragment_retries": 10,
     "extractor_retries": 3,
-    # Bypass YouTube "Sign in to confirm you're not a bot" without cookies:
-    # use player clients that don't require login/PO tokens, in order of preference.
     "extractor_args": {
         "youtube": {
             "player_client": ["visionos", "tv_downgraded", "tv", "web_embedded"],
@@ -29,6 +31,21 @@ ydl_opts = {
         }
     ],
 }
+
+if not _COOKIES and os.path.exists("cookies.txt"):
+    _COOKIES = "cookies.txt"
+
+if _COOKIES and os.path.exists(_COOKIES):
+    ydl_opts["cookiefile"] = _COOKIES
+    # With cookies, prefer the normal web client (best formats) and keep the
+    # no-auth clients as fallback.
+    ydl_opts["extractor_args"]["youtube"]["player_client"] = [
+        "web",
+        "visionos",
+        "tv",
+        "web_embedded",
+    ]
+
 ydl = YoutubeDL(ydl_opts)
 
 

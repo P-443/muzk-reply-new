@@ -20,6 +20,9 @@ async def song(_, message: Message):
     m = await message.reply_text("⌔︙ جارٍ التحميل...")
 
     query = "".join(" " + str(i) for i in message.command[1:])
+    cookie_file = os.getenv("YTDLP_COOKIES")
+    if not cookie_file and os.path.exists("cookies.txt"):
+        cookie_file = "cookies.txt"
     ydl_opts = {
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "extractor_args": {
@@ -28,6 +31,14 @@ async def song(_, message: Message):
             }
         },
     }
+    if cookie_file and os.path.exists(cookie_file):
+        ydl_opts["cookiefile"] = cookie_file
+        ydl_opts["extractor_args"]["youtube"]["player_client"] = [
+            "web",
+            "visionos",
+            "tv",
+            "web_embedded",
+        ]
     try:
         results = YoutubeSearch(query, max_results=5).to_dict()
         link = f"https://youtube.com{results[0]['url_suffix']}"

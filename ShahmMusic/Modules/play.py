@@ -13,7 +13,6 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pytgcalls import StreamType
 from pytgcalls.exceptions import NoActiveGroupCall, TelegramServerError, UnMuteNeeded
 from pytgcalls.types import AudioPiped, HighQualityAudio
-from youtube_search import YoutubeSearch
 
 from config import DURATION_LIMIT
 from ShahmMusic import (
@@ -30,7 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
-from ShahmMusic.Helpers.downloaders import audio_dl
+from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
 from ShahmMusic.Helpers.inline import buttons
@@ -136,7 +135,7 @@ async def play(_, message: Message):
 
     elif url:
         try:
-            results = YoutubeSearch(url, max_results=1).to_dict()
+            results = yt_search(url, 1)
             title = results[0]["title"]
             duration = results[0]["duration"]
             videoid = results[0]["id"]
@@ -160,7 +159,7 @@ async def play(_, message: Message):
         await Shahm.edit_text("⚡️")
         query = message.text.split(None, 1)[1]
         try:
-            results = YoutubeSearch(query, max_results=1).to_dict()
+            results = yt_search(query, 1)
             url = f"https://youtube.com{results[0]['url_suffix']}"
             title = results[0]["title"]
             videoid = results[0]["id"]

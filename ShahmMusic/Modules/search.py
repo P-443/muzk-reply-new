@@ -1,7 +1,7 @@
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from youtube_search import YoutubeSearch
+from ShahmMusic.Helpers.downloaders import yt_search
 
 from ShahmMusic import app
 
@@ -17,16 +17,14 @@ async def ytsearch(_, message: Message):
             return await message.reply_text("⌔︙ اكتب شي تريد تبحث علي")
         query = message.text.split(None, 1)[1]
         m = await message.reply_text("⌔︙ جارٍ البحث...")
-        results = YoutubeSearch(query, max_results=4).to_dict()
-        i = 0
+        results = yt_search(query, 4)
         text = ""
-        while i < 4:
-            text += f"⌔︙ العنوان : {results[i]['title']}\n"
-            text += f"⌔︙ المدة : `{results[i]['duration']}`\n"
-            text += f"⌔︙ المشاهدات : `{results[i]['views']}`\n"
-            text += f"⌔︙ القناه : {results[i]['channel']}\n"
-            text += f"⌔︙ الرابط : https://youtube.com{results[i]['url_suffix']}\n\n"
-            i += 1
+        for r in results[:4]:
+            text += f"⌔︙ العنوان : {r['title']}\n"
+            text += f"⌔︙ المدة : `{r['duration']}`\n"
+            text += f"⌔︙ المشاهدات : `{r['views']}`\n"
+            text += f"⌔︙ القناه : {r['channel']}\n"
+            text += f"⌔︙ الرابط : https://youtube.com{r['url_suffix']}\n\n"
         key = InlineKeyboardMarkup(
             [
                 [

@@ -6,7 +6,7 @@ import yt_dlp
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from youtube_search import YoutubeSearch
+from ShahmMusic.Helpers.downloaders import yt_search
 
 from ShahmMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
 
@@ -40,7 +40,9 @@ async def song(_, message: Message):
             "web_embedded",
         ]
     try:
-        results = YoutubeSearch(query, max_results=5).to_dict()
+        results = yt_search(query, 1)
+        if not results:
+            raise Exception("لا توجد نتائج للبحث")
         link = f"https://youtube.com{results[0]['url_suffix']}"
         title = results[0]["title"][:40]
         thumbnail = results[0]["thumbnails"][0]

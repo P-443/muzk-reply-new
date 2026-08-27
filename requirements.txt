@@ -10,6 +10,6 @@ py-tgcalls==0.9.7
 python-dotenv==0.21.1
 tgcrypto==1.2.5
 speedtest-cli==2.1.3
-git+https://github.com/yt-dlp/yt-dlp@master
+yt-dlp==2026.08.19
 git+https://github.com/alexmercerind/youtube-search-python@main
 bgutil-ytdlp-pot-provider==1.3.2

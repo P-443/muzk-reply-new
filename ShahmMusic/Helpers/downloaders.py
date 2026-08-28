@@ -6,7 +6,10 @@ from yt_dlp import YoutubeDL
 # datacenter IP, YouTube rejects a cookie session with "Sign in to confirm
 # you're not a bot", so the default path is the bgutil PO-token provider
 # (designed for datacenter IPs) which runs automatically in the container.
+# A residential proxy for the yt-dlp requests is the most reliable fix for a
+# hard-flagged datacenter IP: set YTDLP_PROXY=https://user:pass@host:port.
 _COOKIES = os.getenv("YTDLP_COOKIES")
+_PROXY = os.getenv("YTDLP_PROXY")
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -23,11 +26,17 @@ ydl_opts = {
     "retries": 10,
     "fragment_retries": 10,
     "extractor_retries": 3,
-    # "web" goes first so the bgutil PO-token provider (or cookies) is used;
-    # the rest are no-auth fallbacks in case web fails.
+    # yt-dlp tries clients in REVERSE config order, falling through on
+    # bot-check. "web" is last on purpose: bgutil PO token is only generated
+    # when web (or another PO-token client) is actually used. android/ios are
+    # YouTube's mobile API and are frequently the ones that pass a bot-checked
+    # datacenter IP, so they are tried first.
     "extractor_args": {
         "youtube": {
-            "player_client": ["web", "visionos", "tv_downgraded", "tv", "web_embedded"],
+            "player_client": [
+                "web", "visionos", "tv_downgraded", "tv", "web_embedded",
+                "android", "ios", "mweb",
+            ],
         }
     },
     "postprocessors": [
@@ -41,6 +50,8 @@ ydl_opts = {
 
 if _COOKIES and os.path.exists(_COOKIES):
     ydl_opts["cookiefile"] = _COOKIES
+if _PROXY:
+    ydl_opts["proxy"] = _PROXY
 
 ydl = YoutubeDL(ydl_opts)
 

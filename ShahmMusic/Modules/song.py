@@ -21,15 +21,21 @@ async def song(_, message: Message):
 
     query = "".join(" " + str(i) for i in message.command[1:])
     cookie_file = os.getenv("YTDLP_COOKIES")
+    proxy = os.getenv("YTDLP_PROXY")
     ydl_opts = {
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "js_runtimes": {"node": {}},
         "extractor_args": {
             "youtube": {
-                "player_client": ["web", "visionos", "tv_downgraded", "tv", "web_embedded"],
+                "player_client": [
+                    "web", "visionos", "tv_downgraded", "tv", "web_embedded",
+                    "android", "ios", "mweb",
+                ],
             }
         },
     }
+    if proxy:
+        ydl_opts["proxy"] = proxy
     if cookie_file and os.path.exists(cookie_file):
         ydl_opts["cookiefile"] = cookie_file
         ydl_opts["extractor_args"]["youtube"]["player_client"] = [

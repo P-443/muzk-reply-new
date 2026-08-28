@@ -37,7 +37,8 @@ async def gen_thumb(videoid, user_id):
     url = f"https://www.youtube.com/watch?v={videoid}"
     try:
         results = VideosSearch(url, limit=1)
-        for result in (await results.next())["result"]:
+        thumbnail = f"https://i.ytimg.com/vi/{videoid}/hqdefault.jpg"
+        for result in (await results.next()).get("result") or []:
             try:
                 title = result["title"]
                 title = re.sub("\W+", " ", title)
@@ -182,7 +183,8 @@ async def gen_qthumb(videoid, user_id):
     url = f"https://www.youtube.com/watch?v={videoid}"
     try:
         results = VideosSearch(url, limit=1)
-        for result in (await results.next())["result"]:
+        thumbnail = f"https://i.ytimg.com/vi/{videoid}/hqdefault.jpg"
+        for result in (await results.next()).get("result") or []:
             try:
                 title = result["title"]
                 title = re.sub("\W+", " ", title)

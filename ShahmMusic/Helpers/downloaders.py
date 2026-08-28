@@ -1,6 +1,10 @@
 import os
+import re
 
+import requests
 from yt_dlp import YoutubeDL
+
+from ShahmMusic import LOGGER
 
 # Cookies are an OPT-IN fallback via YTDLP_COOKIES=/path/cookies.txt. On a
 # datacenter IP, YouTube rejects a cookie session with "Sign in to confirm
@@ -8,8 +12,21 @@ from yt_dlp import YoutubeDL
 # (designed for datacenter IPs) which runs automatically in the container.
 # A residential proxy for the yt-dlp requests is the most reliable fix for a
 # hard-flagged datacenter IP: set YTDLP_PROXY=https://user:pass@host:port.
+#
+# YTDLP_FETCHER_URL: when set, audio_dl downloads through a small "fetcher"
+# service running on a residential-IP machine (ytdlp-fetcher/fetcher.py).
+# That service resolves + converts the video with yt-dlp from a clean IP and
+# streams the mp3 back, sidestepping the datacenter-IP bot-check entirely.
+_FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
 _COOKIES = os.getenv("YTDLP_COOKIES")
 _PROXY = os.getenv("YTDLP_PROXY")
+
+_VID_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})")
+
+
+def _video_id(url: str) -> str:
+    m = _VID_RE.search(url or "")
+    return m.group(1) if m else "song"
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -56,7 +73,37 @@ if _PROXY:
 ydl = YoutubeDL(ydl_opts)
 
 
+def _audio_dl_via_fetcher(url: str) -> str:
+    """Download audio through the residential-IP fetcher service.
+
+    The fetcher resolves the video from a clean IP (where YouTube is not
+    bot-checked), converts it to mp3, and streams the bytes back. The
+    container just saves them, so it never touches the YouTube player API.
+    """
+    vid = _video_id(url)
+    x_file = os.path.join("downloads", f"{vid}.mp3")
+    if os.path.exists(x_file):
+        return x_file
+    resp = requests.get(
+        f"{_FETCHER_URL}/get_audio", params={"url": url}, timeout=180, stream=True)
+    resp.raise_for_status()
+    os.makedirs("downloads", exist_ok=True)
+    part = x_file + ".part"
+    with open(part, "wb") as f:
+        for chunk in resp.iter_content(65536):
+            if chunk:
+                f.write(chunk)
+    os.replace(part, x_file)
+    return x_file
+
+
 def audio_dl(url: str) -> str:
+    if _FETCHER_URL:
+        try:
+            LOGGER.info(f"audio_dl: fetching via fetcher ({_FETCHER_URL})")
+            return _audio_dl_via_fetcher(url)
+        except Exception as e:
+            LOGGER.error(f"audio_dl: fetcher failed ({e!r}); falling back to yt-dlp")
     sin = ydl.extract_info(url, False)
     x_file = os.path.join("downloads", f"{sin['id']}.mp3")
     if os.path.exists(x_file):

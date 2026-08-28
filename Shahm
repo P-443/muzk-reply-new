@@ -31,11 +31,11 @@ while true; do
     attempt=$((attempt + 1))
     echo "[Shahm] starting bot (attempt $attempt)"
     if python3 -m ShahmMusic; then
-        echo "[Shahm] bot exited cleanly (attempt $attempt); restarting in 30s"
-        sleep 30
+        echo "[Shahm] bot exited cleanly (attempt $attempt); restarting in 300s"
+        sleep 300
     else
         code=$?
-        echo "[Shahm] bot exited with code $code (attempt $attempt); restarting in 60s"
-        sleep 60
+        echo "[Shahm] bot exited with code $code (attempt $attempt); restarting in 300s"
+        sleep 300
     fi
 done

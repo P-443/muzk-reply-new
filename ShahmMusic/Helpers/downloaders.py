@@ -26,6 +26,16 @@ from ShahmMusic import LOGGER
 # YTDLP_PROXY: optional http(s) proxy for the yt-dlp requests.
 _FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
 _PROXY = os.getenv("YTDLP_PROXY")
+# Optional requests-based Google account login -- the YouTube Android app's
+# model (the "Google Play" login). yt-dlp signs into Google with plain HTTP
+# requests (email + password, optional 2FA code): NO browser cookies, NO
+# selenium. A LOGGED-IN request is trusted by YouTube and is NOT subject to
+# the "Sign in to confirm you're not a bot" gate that anonymous requests hit
+# from this datacenter IP. Set in Coolify (then redeploy):
+#   YTDLP_USERNAME=<gmail>   YTDLP_PASSWORD=<password>   YTDLP_TWOFA=<2fa code>
+_YOUTUBE_USERNAME = os.getenv("YTDLP_USERNAME")
+_YOUTUBE_PASSWORD = os.getenv("YTDLP_PASSWORD")
+_YOUTUBE_TWOFA = os.getenv("YTDLP_TWOFA")
 # The fetcher tunnel is ephemeral and often dead; short-circuit it for a few
 # minutes instead of waiting the DNS/HTTP timeout on every request.
 _fetcher_dead_until = 0.0
@@ -35,9 +45,10 @@ def _fetcher_alive() -> bool:
     return bool(_FETCHER_URL) and time.time() >= _fetcher_dead_until
 
 LOGGER.info(
-    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s (cookie-less mode)",
+    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s account-login=%s (cookie-less mode)",
     "SET" if _FETCHER_URL else "NOT SET",
     "SET" if _PROXY else "NOT SET",
+    "ENABLED" if (_YOUTUBE_USERNAME and _YOUTUBE_PASSWORD) else "OFF",
 )
 
 _VID_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})")
@@ -88,6 +99,14 @@ ydl_opts = {
 
 if _PROXY:
     ydl_opts["proxy"] = _PROXY
+
+# Account login rides on the android client (listed first in player_client),
+# which makes the innertube player API request authenticated + trusted.
+if _YOUTUBE_USERNAME and _YOUTUBE_PASSWORD:
+    ydl_opts["username"] = _YOUTUBE_USERNAME
+    ydl_opts["password"] = _YOUTUBE_PASSWORD
+    if _YOUTUBE_TWOFA:
+        ydl_opts["twofactor"] = _YOUTUBE_TWOFA
 
 ydl = YoutubeDL(ydl_opts)
 

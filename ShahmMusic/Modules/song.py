@@ -21,8 +21,6 @@ async def song(_, message: Message):
 
     query = "".join(" " + str(i) for i in message.command[1:])
     cookie_file = os.getenv("YTDLP_COOKIES")
-    if not cookie_file and os.path.exists("cookies.txt"):
-        cookie_file = "cookies.txt"
     ydl_opts = {
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "js_runtimes": {"node": {}},

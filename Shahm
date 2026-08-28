@@ -6,6 +6,20 @@ if [ -f /opt/bgutil-pot/server/build/main.js ]; then
     (cd /opt/bgutil-pot/server && node build/main.js >/tmp/bgutil.log 2>&1 &)
     # give the local provider a moment to start listening on 127.0.0.1:4416
     sleep 3
+    # report whether the PO-token provider actually came up (visible in logs)
+    up=0
+    for i in $(seq 1 10); do
+        if bash -c 'exec 3<>/dev/tcp/127.0.0.1/4416' 2>/dev/null; then
+            up=1
+            break
+        fi
+        sleep 1
+    done
+    if [ "$up" = "1" ]; then
+        echo "[Shahm] bgutil PO-token provider is UP on 127.0.0.1:4416"
+    else
+        echo "[Shahm] bgutil PO-token provider FAILED to start (see /tmp/bgutil.log)"
+    fi
 fi
 
 cd /app

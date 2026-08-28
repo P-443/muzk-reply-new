@@ -2,10 +2,10 @@ import os
 
 from yt_dlp import YoutubeDL
 
-# Optional cookies.txt fallback (strongest guarantee against YouTube's
-# datacenter bot-check). Drop a "cookies.txt" in the repo root, or set
-# YTDLP_COOKIES=/path/cookies.txt. Not required: the bgutil PO-token provider
-# is used automatically when the container runs it.
+# Cookies are an OPT-IN fallback via YTDLP_COOKIES=/path/cookies.txt. On a
+# datacenter IP, YouTube rejects a cookie session with "Sign in to confirm
+# you're not a bot", so the default path is the bgutil PO-token provider
+# (designed for datacenter IPs) which runs automatically in the container.
 _COOKIES = os.getenv("YTDLP_COOKIES")
 
 ydl_opts = {
@@ -38,9 +38,6 @@ ydl_opts = {
         }
     ],
 }
-
-if not _COOKIES and os.path.exists("cookies.txt"):
-    _COOKIES = "cookies.txt"
 
 if _COOKIES and os.path.exists(_COOKIES):
     ydl_opts["cookiefile"] = _COOKIES

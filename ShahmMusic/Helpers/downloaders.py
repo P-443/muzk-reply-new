@@ -6,25 +6,27 @@ from yt_dlp import YoutubeDL
 
 from ShahmMusic import LOGGER
 
-# Cookies are an OPT-IN fallback via YTDLP_COOKIES=/path/cookies.txt. On a
-# datacenter IP, YouTube rejects a cookie session with "Sign in to confirm
-# you're not a bot", so the default path is the bgutil PO-token provider
-# (designed for datacenter IPs) which runs automatically in the container.
-# A residential proxy for the yt-dlp requests is the most reliable fix for a
-# hard-flagged datacenter IP: set YTDLP_PROXY=https://user:pass@host:port.
+# ── Cookie-less YouTube access ──────────────────────────────────────────────
+# No cookies anywhere. On a datacenter IP, YouTube bot-checks the "web"
+# player client, so we:
+#   1. try the mobile/embedded clients first (android / ios / mweb / tv) —
+#      they are NOT bot-checked the way "web" is, and need no PO-token;
+#   2. only fall back to the "web" client (which the bgutil PO-token
+#      provider serves from 127.0.0.1:4416, see Dockerfile).
+# yt-dlp processes extractor_args player_client IN THE ORDER LISTED (the
+# old "reverse order" comment was wrong for current yt-dlp versions).
 #
 # YTDLP_FETCHER_URL: when set, audio_dl downloads through a small "fetcher"
 # service running on a residential-IP machine (ytdlp-fetcher/fetcher.py).
 # That service resolves + converts the video with yt-dlp from a clean IP and
 # streams the mp3 back, sidestepping the datacenter-IP bot-check entirely.
+# YTDLP_PROXY: optional http(s) proxy for the yt-dlp requests.
 _FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
-_COOKIES = os.getenv("YTDLP_COOKIES")
 _PROXY = os.getenv("YTDLP_PROXY")
 
 LOGGER.info(
-    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_COOKIES=%s YTDLP_PROXY=%s",
+    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s (cookie-less mode)",
     "SET" if _FETCHER_URL else "NOT SET",
-    "SET" if _COOKIES else "NOT SET",
     "SET" if _PROXY else "NOT SET",
 )
 
@@ -35,14 +37,19 @@ def _video_id(url: str) -> str:
     m = _VID_RE.search(url or "")
     return m.group(1) if m else "song"
 
+
+def _thumb(id_: str) -> str:
+    return f"https://i.ytimg.com/vi/{id_}/hqdefault.jpg"
+
+
 ydl_opts = {
     "format": "bestaudio/best",
     "outtmpl": "downloads/%(id)s.%(ext)s",
     "geo_bypass": True,
+    "geo_bypass_country": "US",  # matches the config that works from clean IPs
     "nocheckcertificate": True,
-    # Enable Node.js as the JS runtime for yt-dlp. The container ships Node
-    # (no deno), and the web player's "n" challenge + PO-token flow need a JS
-    # runtime to avoid YouTube's datacenter-IP bot-check.
+    # Enable Node.js as the JS runtime for yt-dlp (the container ships Node
+    # 22). Needed for the "n" challenge + PO-token flow on the web client.
     "js_runtimes": {"node": {}},
     "quiet": True,
     "no_warnings": True,
@@ -50,16 +57,13 @@ ydl_opts = {
     "retries": 10,
     "fragment_retries": 10,
     "extractor_retries": 3,
-    # yt-dlp tries clients in REVERSE config order, falling through on
-    # bot-check. "web" is last on purpose: bgutil PO token is only generated
-    # when web (or another PO-token client) is actually used. android/ios are
-    # YouTube's mobile API and are frequently the ones that pass a bot-checked
-    # datacenter IP, so they are tried first.
+    # Mobile/embedded clients first (not bot-checked like "web"), web last
+    # (web is served by the bgutil PO-token provider on the datacenter IP).
     "extractor_args": {
         "youtube": {
             "player_client": [
-                "web", "visionos", "tv_downgraded", "tv", "web_embedded",
-                "android", "ios", "mweb",
+                "android", "ios", "mweb", "tv", "web_embedded",
+                "tv_downgraded", "visionos", "web",
             ],
         }
     },
@@ -72,8 +76,6 @@ ydl_opts = {
     ],
 }
 
-if _COOKIES and os.path.exists(_COOKIES):
-    ydl_opts["cookiefile"] = _COOKIES
 if _PROXY:
     ydl_opts["proxy"] = _PROXY
 
@@ -141,19 +143,81 @@ def _fetcher_resolve(url: str) -> dict | None:
         return None
 
 
+def _build_result(e: dict) -> dict | None:
+    """Normalize one yt-dlp entry into the shared result shape."""
+    if not e or not e.get("id"):
+        return None
+    vid = e.get("id")
+    dur = int(e.get("duration") or 0)
+    thumbs = [t.get("url") for t in (e.get("thumbnails") or []) if isinstance(t, dict) and t.get("url")]
+    if not thumbs:
+        thumbs = [_thumb(vid)]
+    return {
+        "id": vid,
+        "title": e.get("title") or "",
+        "duration": f"{dur // 60}:{dur % 60:02d}",
+        "url_suffix": "/watch?v=" + vid,
+        "views": str(e.get("view_count") or ""),
+        "channel": e.get("channel") or e.get("uploader") or "",
+        "thumbnails": thumbs,
+    }
+
+
+def _search_via_videos_search(query: str, max_results: int):
+    """Fallback: scrape YouTube search via youtube-search-python (already a
+    dependency, used by the inline module). Plain web scrape, so it bypasses
+    the bot-checked innertube player API that yt-dlp's web client hits."""
+    try:
+        from youtubesearchpython.__future__ import VideosSearch
+        a = VideosSearch(query, limit=max_results)
+        res = (a.next().get("result")) or []
+        out = []
+        for x in res:
+            if not x or not x.get("link"):
+                continue
+            m = _VID_RE.search(x.get("link") or "")
+            vid = m.group(1) if m else None
+            if not vid:
+                continue
+            thumbs = x.get("thumbnails") or []
+            thumbs = [t.get("url") for t in thumbs if isinstance(t, dict) and t.get("url")] or [_thumb(vid)]
+            out.append({
+                "id": vid,
+                "title": (x.get("title") or "").title(),
+                "duration": x.get("duration") or "0:00",
+                "url_suffix": "/watch?v=" + vid,
+                "views": (x.get("viewCount") or {}).get("short", "") or "",
+                "channel": (x.get("channel") or {}).get("name", "") or "",
+                "thumbnails": thumbs,
+            })
+        return out
+    except Exception as e:
+        LOGGER.error(f"yt_search: VideosSearch fallback failed ({e!r})")
+        return []
+
+
 def yt_search(query: str, max_results: int = 1):
-    """Search YouTube via yt-dlp (reuses the same cookies/client config).
+    """Search YouTube, cookie-less.
 
-    Returns a list of dicts shaped like the legacy youtube_search lib:
-    id, title, duration ("M:SS"), url_suffix, views, channel, thumbnails.
+    - A direct video URL is resolved through the fetcher when configured, so
+      the container never calls the bot-checked player API for the URL case.
+    - A text query is searched with yt-dlp using extract_flat=True: this only
+      reads the search page (one API call) instead of fully extracting every
+      result, which is what triggered the "Sign in to confirm you're not a
+      bot" flood on the datacenter IP. If that still fails, falls back to the
+      youtube-search-python web scrape.
 
-    A direct video URL is resolved through the fetcher when configured, so the
-    container never calls the bot-checked player API for the URL case.
+    Returns a list of dicts: id, title, duration ("M:SS"), url_suffix, views,
+    channel, thumbnails.
     """
     opts = dict(ydl_opts)
     opts.pop("postprocessors", None)
     opts["skip_download"] = True
     q = (query or "").strip()
+    if not q:
+        return []
+
+    # Direct URL → fetcher first, then full local extraction.
     if q.startswith(("http://", "https://")):
         meta = _fetcher_resolve(q)
         if meta:
@@ -167,29 +231,35 @@ def yt_search(query: str, max_results: int = 1):
                 "url_suffix": "/watch?v=" + vid,
                 "views": "",
                 "channel": "",
-                "thumbnails": [f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"],
+                "thumbnails": [_thumb(vid)],
             }]
         LOGGER.warning("yt_search: fetcher resolve failed; falling back to container extract_info")
-        target = q
-    else:
-        target = f"ytsearch{max_results}:{q}"
-    with YoutubeDL(opts) as search_ydl:
-        info = search_ydl.extract_info(target, download=False)
-    entries = [info] if "entries" not in info else (info.get("entries") or [])
-    out = []
-    for e in entries:
-        if not e:
-            continue
-        dur = int(e.get("duration") or 0)
-        out.append({
-            "id": e.get("id"),
-            "title": e.get("title") or "",
-            "duration": f"{dur // 60}:{dur % 60:02d}",
-            "url_suffix": "/watch?v=" + (e.get("id") or ""),
-            "views": str(e.get("view_count") or ""),
-            "channel": e.get("channel") or e.get("uploader") or "",
-            "thumbnails": [
-                t.get("url") for t in (e.get("thumbnails") or []) if t.get("url")
-            ],
-        })
-    return out
+        try:
+            with YoutubeDL(opts) as ydl2:
+                info = ydl2.extract_info(q, download=False)
+            out = []
+            entries = [info] if "entries" not in info else (info.get("entries") or [])
+            for e in entries:
+                r = _build_result(e)
+                if r:
+                    out.append(r)
+            return out
+        except Exception as e:
+            LOGGER.error(f"yt_search: URL extract failed ({e!r})")
+            return []
+
+    # Text query → flat search (fast, one API call), then scrape fallback.
+    try:
+        with YoutubeDL(opts) as ydl2:
+            info = ydl2.extract_info(f"ytsearch{max_results}:{q}", download=False)
+        out = []
+        for e in (info.get("entries") or []):
+            r = _build_result(e)
+            if r:
+                out.append(r)
+        if out:
+            return out
+    except Exception as e:
+        LOGGER.error(f"yt_search: yt-dlp flat search failed ({e!r})")
+
+    return _search_via_videos_search(q, max_results)

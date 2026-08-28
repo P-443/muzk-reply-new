@@ -154,7 +154,10 @@ async def play(_, message: Message):
             return await Shahm.edit_text(
                 f"⌔︙ فشل التشغيل بسبب ان الاغنية طويلة {DURATION_LIMIT} شغل اغنية تانية {BOT_NAME}.."
             )
-        file_path = audio_dl(url)
+        try:
+            file_path = audio_dl(url)
+        except Exception as e:
+            return await Shahm.edit_text(f"هناك خطأ\n\n**ايرور :** `{e}`")
     else:
         if len(message.command) < 2:
             return await Shahm.edit_text("⌔︙ اكتب اسم الاغنية 🎧")
@@ -182,7 +185,11 @@ async def play(_, message: Message):
             return await Shahm.edit(
                 f"⌔︙ فشل التشغيل بسبب ان الاغنية طويلة {DURATION_LIMIT} شغل اغنية تانية {BOT_NAME}.."
             )
-        file_path = audio_dl(url)
+        try:
+            file_path = audio_dl(url)
+        except Exception as e:
+            LOGGER.error(str(e))
+            return await Shahm.edit(f"هناك خطأ\n\n**ايرور :** `{e}`")
 
     try:
         videoid = videoid

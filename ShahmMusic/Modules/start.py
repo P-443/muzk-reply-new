@@ -21,7 +21,10 @@ async def Shahm_st(_, message: Message):
                 query = (str(cmd)).replace("info_", "", 1)
                 query = f"https://www.youtube.com/watch?v={query}"
                 results = VideosSearch(query, limit=1)
-                for result in (await results.next())["result"]:
+                _res = (await results.next()).get("result") or []
+                if not _res:
+                    return await m.edit_text("لا توجد نتائج للبحث")
+                for result in _res:
                     title = result["title"]
                     duration = result["duration"]
                     views = result["viewCount"]["short"]

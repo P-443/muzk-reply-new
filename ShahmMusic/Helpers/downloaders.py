@@ -125,12 +125,21 @@ def audio_dl(url: str) -> str:
             global _fetcher_dead_until
             _fetcher_dead_until = time.time() + 300
             LOGGER.error(f"audio_dl: fetcher failed ({e!r}); re-trying fetcher in 5 min")
-    sin = ydl.extract_info(url, False)
-    x_file = os.path.join("downloads", f"{sin['id']}.mp3")
-    if os.path.exists(x_file):
+    try:
+        sin = ydl.extract_info(url, False)
+        x_file = os.path.join("downloads", f"{sin['id']}.mp3")
+        if os.path.exists(x_file):
+            return x_file
+        ydl.download([url])
         return x_file
-    ydl.download([url])
-    return x_file
+    except Exception as e:
+        # The datacenter IP is hard bot-checked, so the container's own yt-dlp
+        # cannot download. Raise a clean, actionable error instead of letting
+        # a raw DownloadError crash the handler.
+        raise RuntimeError(
+            "YouTube حظر هذا السيرفر (داتا سنتر). فعّل الفيتشر على IP نظيف "
+            "(انظر ytdlp-fetcher/README.md) ثم أعد المحاولة."
+        ) from e
 
 
 def _fetcher_resolve(url: str) -> dict | None:

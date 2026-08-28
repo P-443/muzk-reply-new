@@ -25,6 +25,7 @@ async def song(_, message: Message):
         cookie_file = "cookies.txt"
     ydl_opts = {
         "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "js_runtimes": {"node": {}},
         "extractor_args": {
             "youtube": {
                 "player_client": ["web", "visionos", "tv_downgraded", "tv", "web_embedded"],

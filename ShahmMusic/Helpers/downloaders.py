@@ -13,6 +13,10 @@ ydl_opts = {
     "outtmpl": "downloads/%(id)s.%(ext)s",
     "geo_bypass": True,
     "nocheckcertificate": True,
+    # Enable Node.js as the JS runtime for yt-dlp. The container ships Node
+    # (no deno), and the web player's "n" challenge + PO-token flow need a JS
+    # runtime to avoid YouTube's datacenter-IP bot-check.
+    "js_runtimes": {"node": {}},
     "quiet": True,
     "no_warnings": True,
     "prefer_ffmpeg": True,

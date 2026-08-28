@@ -51,7 +51,8 @@ SUNAME = config.SUPPORT_CHAT.split("me/")[1]
 
 
 async def fallen_startup():
-    os.system("clear")
+    if os.name == "posix" and os.environ.get("TERM"):
+        os.system("clear")
     LOGGER.info(
         "\n\n\u250f\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513\n\u2523\u2605\x20\x46\x41\x4c\x4c\x45\x4e\x20\x4d\x55\x53\x49\x43\x20\x42\x4f\x54\x20\u2605\n\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251b"
     )

@@ -21,6 +21,13 @@ _FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
 _COOKIES = os.getenv("YTDLP_COOKIES")
 _PROXY = os.getenv("YTDLP_PROXY")
 
+LOGGER.info(
+    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_COOKIES=%s YTDLP_PROXY=%s",
+    "SET" if _FETCHER_URL else "NOT SET",
+    "SET" if _COOKIES else "NOT SET",
+    "SET" if _PROXY else "NOT SET",
+)
+
 _VID_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})")
 
 
@@ -112,17 +119,57 @@ def audio_dl(url: str) -> str:
     return x_file
 
 
+def _fetcher_resolve(url: str) -> dict | None:
+    """Resolve video metadata through the residential-IP fetcher.
+
+    The fetcher extracts on a clean IP where YouTube is not bot-checked, so the
+    container never has to hit the player API for a direct URL. Returns a dict
+    (with title/duration) or None on failure.
+    """
+    if not _FETCHER_URL:
+        return None
+    try:
+        r = requests.get(f"{_FETCHER_URL}/resolve", params={"url": url}, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        if not data.get("ok"):
+            LOGGER.warning(f"yt_search: fetcher resolve not-ok: {data}")
+            return None
+        return data
+    except Exception as e:
+        LOGGER.error(f"yt_search: fetcher resolve failed ({e!r})")
+        return None
+
+
 def yt_search(query: str, max_results: int = 1):
     """Search YouTube via yt-dlp (reuses the same cookies/client config).
 
     Returns a list of dicts shaped like the legacy youtube_search lib:
     id, title, duration ("M:SS"), url_suffix, views, channel, thumbnails.
+
+    A direct video URL is resolved through the fetcher when configured, so the
+    container never calls the bot-checked player API for the URL case.
     """
     opts = dict(ydl_opts)
     opts.pop("postprocessors", None)
     opts["skip_download"] = True
     q = (query or "").strip()
     if q.startswith(("http://", "https://")):
+        meta = _fetcher_resolve(q)
+        if meta:
+            vid = _video_id(q)
+            dur = int(meta.get("duration") or 0)
+            LOGGER.info(f"yt_search: URL metadata via fetcher ({vid})")
+            return [{
+                "id": vid,
+                "title": meta.get("title") or "",
+                "duration": f"{dur // 60}:{dur % 60:02d}",
+                "url_suffix": "/watch?v=" + vid,
+                "views": "",
+                "channel": "",
+                "thumbnails": [f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"],
+            }]
+        LOGGER.warning("yt_search: fetcher resolve failed; falling back to container extract_info")
         target = q
     else:
         target = f"ytsearch{max_results}:{q}"

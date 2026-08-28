@@ -2,11 +2,10 @@
 import os
 
 import requests
-import yt_dlp
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from ShahmMusic.Helpers.downloaders import yt_search
+from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 
 from ShahmMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
 
@@ -20,30 +19,6 @@ async def song(_, message: Message):
     m = await message.reply_text("⌔︙ جارٍ التحميل...")
 
     query = "".join(" " + str(i) for i in message.command[1:])
-    cookie_file = os.getenv("YTDLP_COOKIES")
-    proxy = os.getenv("YTDLP_PROXY")
-    ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio/best",
-        "js_runtimes": {"node": {}},
-        "extractor_args": {
-            "youtube": {
-                "player_client": [
-                    "web", "visionos", "tv_downgraded", "tv", "web_embedded",
-                    "android", "ios", "mweb",
-                ],
-            }
-        },
-    }
-    if proxy:
-        ydl_opts["proxy"] = proxy
-    if cookie_file and os.path.exists(cookie_file):
-        ydl_opts["cookiefile"] = cookie_file
-        ydl_opts["extractor_args"]["youtube"]["player_client"] = [
-            "web",
-            "visionos",
-            "tv",
-            "web_embedded",
-        ]
     try:
         results = yt_search(query, 1)
         if not results:
@@ -64,10 +39,7 @@ async def song(_, message: Message):
 
     await m.edit_text("**⌔︙ يتم التحميل **\n\n**⌔︙ من فضلك انتظر")
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(link, download=False)
-            audio_file = ydl.prepare_filename(info_dict)
-            ydl.process_info(info_dict)
+        audio_file = audio_dl(link)
         rep = f"⌔︙ **العنوان :** [{title[:23]}]({link})\n⌔︙ **المده :** `{duration}`\n⌔︙ ** بواسطة :** {BOT_MENTION}"
         secmul, dur, dur_arr = 1, 0, duration.split(":")
         for i in range(len(dur_arr) - 1, -1, -1):

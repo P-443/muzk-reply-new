@@ -1,3 +1,5 @@
+import asyncio
+import concurrent.futures
 import os
 import re
 
@@ -163,14 +165,29 @@ def _build_result(e: dict) -> dict | None:
     }
 
 
+def _run_coro(coro):
+    """Run a coroutine from a sync call, even when called inside the running
+    event loop (pyrogram handlers call yt_search synchronously)."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
 def _search_via_videos_search(query: str, max_results: int):
     """Fallback: scrape YouTube search via youtube-search-python (already a
     dependency, used by the inline module). Plain web scrape, so it bypasses
     the bot-checked innertube player API that yt-dlp's web client hits."""
     try:
         from youtubesearchpython.__future__ import VideosSearch
-        a = VideosSearch(query, limit=max_results)
-        res = (a.next().get("result")) or []
+
+        async def _do():
+            a = VideosSearch(query, limit=max_results)
+            return (await a.next()) or {}
+
+        res = (_run_coro(_do()).get("result")) or []
         out = []
         for x in res:
             if not x or not x.get("link"):
@@ -213,6 +230,10 @@ def yt_search(query: str, max_results: int = 1):
     opts = dict(ydl_opts)
     opts.pop("postprocessors", None)
     opts["skip_download"] = True
+    # Flat search: read ONLY the search page (one request) instead of fully
+    # extracting every result — full extraction is what hits the bot-checked
+    # player API on the datacenter IP ("Sign in to confirm you're not a bot").
+    opts["extract_flat"] = True
     q = (query or "").strip()
     if not q:
         return []

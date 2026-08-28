@@ -25,8 +25,8 @@ async def inline_query_handler(_, query):
             return
     else:
         a = VideosSearch(text, limit=20)
-        result = (await a.next()).get("result")
-        for x in range(15):
+        result = (await a.next()).get("result") or []
+        for x in range(min(len(result), 15)):
             title = (result[x]["title"]).title()
             duration = result[x]["duration"]
             views = result[x]["viewCount"]["short"]

@@ -6,12 +6,12 @@ from yt_dlp import YoutubeDL
 
 from ShahmMusic import LOGGER
 
-# Cookies are an OPT-IN fallback via YTDLP_COOKIES=/path/cookies.txt. On a
-# datacenter IP, YouTube rejects a cookie session with "Sign in to confirm
-# you're not a bot", so the default path is the bgutil PO-token provider
-# (designed for datacenter IPs) which runs automatically in the container.
-# A residential proxy for the yt-dlp requests is the most reliable fix for a
-# hard-flagged datacenter IP: set YTDLP_PROXY=https://user:pass@host:port.
+# Cookie-less by default. On a datacenter IP, YouTube rejects cookies, login
+# and PO tokens with "Sign in to confirm you're not a bot" -- the ONLY working
+# fix is clean egress via YTDLP_PROXY. On this Coolify server that is the
+# deployed Cloudflare WARP proxy (socks5h://10.0.1.1:9091, set at the app
+# level), which routes yt-dlp through Cloudflare so the player API is not
+# bot-checked. A residential proxy also works: YTDLP_PROXY=https://user:pass@host:port.
 #
 # YTDLP_FETCHER_URL: when set, audio_dl downloads through a small "fetcher"
 # service running on a residential-IP machine (ytdlp-fetcher/fetcher.py).
@@ -166,9 +166,10 @@ def audio_dl(url: str) -> str:
         if "Sign in to confirm" in str(e) or "not a bot" in str(e):
             LOGGER.error(
                 "audio_dl: [%s] DIAGNOSIS: this container's datacenter IP is "
-                "flagged by YouTube -- cookies alone do NOT bypass it. Working "
-                "fixes: YTDLP_PROXY=<residential proxy> (best) OR the clean-IP "
-                "fetcher YTDLP_FETCHER_URL=<fresh tunnel>.",
+                "flagged by YouTube -- cookies/login/PO tokens do NOT bypass "
+                "it. Working fix: YTDLP_PROXY=<socks5 proxy with clean egress> "
+                "(on this server: the deployed WARP proxy "
+                "socks5h://10.0.1.1:9091).",
                 vid,
             )
         raise
@@ -247,9 +248,9 @@ def yt_search(query: str, max_results: int = 1):
         if "Sign in to confirm" in str(e) or "not a bot" in str(e):
             LOGGER.error(
                 "yt_search: DIAGNOSIS: this container's datacenter IP is flagged "
-                "by YouTube -- cookies alone do NOT bypass it. Working fixes: "
-                "YTDLP_PROXY=<residential proxy> (best) OR the clean-IP fetcher "
-                "YTDLP_FETCHER_URL=<fresh tunnel>.",
+                "by YouTube -- cookies/login/PO tokens do NOT bypass it. Working "
+                "fix: YTDLP_PROXY=<socks5 proxy with clean egress> (on this "
+                "server: the deployed WARP proxy socks5h://10.0.1.1:9091).",
             )
         raise
     entries = [info] if "entries" not in info else (info.get("entries") or [])

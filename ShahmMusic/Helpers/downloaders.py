@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import os
 import re
+import time
 
 import requests
 from yt_dlp import YoutubeDL
@@ -25,6 +26,13 @@ from ShahmMusic import LOGGER
 # YTDLP_PROXY: optional http(s) proxy for the yt-dlp requests.
 _FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
 _PROXY = os.getenv("YTDLP_PROXY")
+# The fetcher tunnel is ephemeral and often dead; short-circuit it for a few
+# minutes instead of waiting the DNS/HTTP timeout on every request.
+_fetcher_dead_until = 0.0
+
+
+def _fetcher_alive() -> bool:
+    return bool(_FETCHER_URL) and time.time() >= _fetcher_dead_until
 
 LOGGER.info(
     "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s (cookie-less mode)",
@@ -109,12 +117,14 @@ def _audio_dl_via_fetcher(url: str) -> str:
 
 
 def audio_dl(url: str) -> str:
-    if _FETCHER_URL:
+    if _fetcher_alive():
         try:
             LOGGER.info(f"audio_dl: fetching via fetcher ({_FETCHER_URL})")
             return _audio_dl_via_fetcher(url)
         except Exception as e:
-            LOGGER.error(f"audio_dl: fetcher failed ({e!r}); falling back to yt-dlp")
+            global _fetcher_dead_until
+            _fetcher_dead_until = time.time() + 300
+            LOGGER.error(f"audio_dl: fetcher failed ({e!r}); re-trying fetcher in 5 min")
     sin = ydl.extract_info(url, False)
     x_file = os.path.join("downloads", f"{sin['id']}.mp3")
     if os.path.exists(x_file):
@@ -130,7 +140,7 @@ def _fetcher_resolve(url: str) -> dict | None:
     container never has to hit the player API for a direct URL. Returns a dict
     (with title/duration) or None on failure.
     """
-    if not _FETCHER_URL:
+    if not _fetcher_alive():
         return None
     try:
         r = requests.get(f"{_FETCHER_URL}/resolve", params={"url": url}, timeout=60)
@@ -141,7 +151,9 @@ def _fetcher_resolve(url: str) -> dict | None:
             return None
         return data
     except Exception as e:
-        LOGGER.error(f"yt_search: fetcher resolve failed ({e!r})")
+        global _fetcher_dead_until
+        _fetcher_dead_until = time.time() + 300
+        LOGGER.error(f"yt_search: fetcher resolve failed ({e!r}); re-trying fetcher in 5 min")
         return None
 
 

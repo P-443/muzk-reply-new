@@ -136,6 +136,8 @@ async def play(_, message: Message):
     elif url:
         try:
             results = yt_search(url, 1)
+            if not results:
+                raise Exception("لا توجد نتائج للبحث")
             title = results[0]["title"]
             duration = results[0]["duration"]
             videoid = results[0]["id"]
@@ -160,6 +162,8 @@ async def play(_, message: Message):
         query = message.text.split(None, 1)[1]
         try:
             results = yt_search(query, 1)
+            if not results:
+                raise Exception("لا توجد نتائج للبحث")
             url = f"https://youtube.com{results[0]['url_suffix']}"
             title = results[0]["title"]
             videoid = results[0]["id"]

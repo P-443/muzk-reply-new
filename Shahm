@@ -23,4 +23,19 @@ if [ -f /opt/bgutil-pot/server/build/main.js ]; then
 fi
 
 cd /app
-exec python3 -m ShahmMusic
+# Keep the container alive: if the bot exits (e.g. a Telegram FloodWait on bot
+# login, a fatal error, or a crash), wait and retry instead of letting the
+# container die and enter Coolify's crash/restart loop.
+attempt=0
+while true; do
+    attempt=$((attempt + 1))
+    echo "[Shahm] starting bot (attempt $attempt)"
+    if python3 -m ShahmMusic; then
+        echo "[Shahm] bot exited cleanly (attempt $attempt); restarting in 30s"
+        sleep 30
+    else
+        code=$?
+        echo "[Shahm] bot exited with code $code (attempt $attempt); restarting in 60s"
+        sleep 60
+    fi
+done

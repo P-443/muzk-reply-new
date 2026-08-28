@@ -152,13 +152,10 @@ def audio_dl(url: str) -> str:
         ydl.download([url])
         return x_file
     except Exception as e:
-        # The datacenter IP is hard bot-checked, so the container's own yt-dlp
-        # cannot download. Raise a clean, actionable error instead of letting
-        # a raw DownloadError crash the handler.
-        raise RuntimeError(
-            "YouTube حظر هذا السيرفر (داتا سنتر). فعّل الفيتشر على IP نظيف "
-            "(انظر ytdlp-fetcher/README.md) ثم أعد المحاولة."
-        ) from e
+        # Surface yt-dlp's own English error to the caller verbatim (play.py
+        # shows it to the user) instead of wrapping it in a custom message.
+        LOGGER.error(f"audio_dl: container yt-dlp failed ({e!r})")
+        raise
 
 
 def _fetcher_resolve(url: str) -> dict | None:

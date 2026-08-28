@@ -36,6 +36,27 @@ _PROXY = os.getenv("YTDLP_PROXY")
 _YOUTUBE_USERNAME = os.getenv("YTDLP_USERNAME")
 _YOUTUBE_PASSWORD = os.getenv("YTDLP_PASSWORD")
 _YOUTUBE_TWOFA = os.getenv("YTDLP_TWOFA")
+# Netscape cookies.txt from the boot-time browser auto-login (get_cookies.py),
+# or supplied by the operator as base64 in YTDLP_COOKIES_B64 (harvested from a
+# clean IP). Passed to yt-dlp as cookiefile -- the "--cookies" path yt-dlp's
+# own bot-check error recommends. A logged-in session is trusted by YouTube
+# even when anonymous requests from this datacenter IP are bot-checked.
+_COOKIES_B64 = os.getenv("YTDLP_COOKIES_B64")
+_COOKIES_FILE = "cookies.txt"
+if _COOKIES_B64:
+    try:
+        import base64
+        _decoded = base64.b64decode(_COOKIES_B64).decode("utf-8")
+        with open(_COOKIES_FILE, "w", encoding="utf-8") as _f:
+            _f.write(_decoded)
+        LOGGER.info(
+            "downloaders: YTDLP_COOKIES_B64 -> wrote %s (%d bytes)",
+            _COOKIES_FILE,
+            len(_decoded),
+        )
+    except Exception as _e:
+        LOGGER.error(f"downloaders: YTDLP_COOKIES_B64 decode failed ({_e!r})")
+_HAS_COOKIES = os.path.isfile(_COOKIES_FILE) and os.path.getsize(_COOKIES_FILE) > 0
 # The fetcher tunnel is ephemeral and often dead; short-circuit it for a few
 # minutes instead of waiting the DNS/HTTP timeout on every request.
 _fetcher_dead_until = 0.0
@@ -45,10 +66,11 @@ def _fetcher_alive() -> bool:
     return bool(_FETCHER_URL) and time.time() >= _fetcher_dead_until
 
 LOGGER.info(
-    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s account-login=%s (cookie-less mode)",
+    "downloaders: YTDLP_FETCHER_URL=%s YTDLP_PROXY=%s account-login=%s cookies=%s",
     "SET" if _FETCHER_URL else "NOT SET",
     "SET" if _PROXY else "NOT SET",
     "ENABLED" if (_YOUTUBE_USERNAME and _YOUTUBE_PASSWORD) else "OFF",
+    "ON (%s)" % _COOKIES_FILE if _HAS_COOKIES else "OFF",
 )
 
 _VID_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})")
@@ -100,9 +122,12 @@ ydl_opts = {
 if _PROXY:
     ydl_opts["proxy"] = _PROXY
 
-# Account login rides on the android client (listed first in player_client),
-# which makes the innertube player API request authenticated + trusted.
-if _YOUTUBE_USERNAME and _YOUTUBE_PASSWORD:
+# Cookies (a real logged-in session) take precedence; the requests-based
+# account login is the fallback. Both ride on the android client (listed
+# first in player_client) for the innertube player API request.
+if _HAS_COOKIES:
+    ydl_opts["cookiefile"] = _COOKIES_FILE
+elif _YOUTUBE_USERNAME and _YOUTUBE_PASSWORD:
     ydl_opts["username"] = _YOUTUBE_USERNAME
     ydl_opts["password"] = _YOUTUBE_PASSWORD
     if _YOUTUBE_TWOFA:

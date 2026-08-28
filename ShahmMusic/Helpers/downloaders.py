@@ -215,6 +215,10 @@ def yt_search(query: str, max_results: int = 1):
     opts = dict(ydl_opts)
     opts.pop("postprocessors", None)
     opts["skip_download"] = True
+    # Flat search: read ONLY the search page (one request) instead of fully
+    # extracting every result -- full extraction is what hits the bot-checked
+    # player API on the datacenter IP ("Sign in to confirm you're not a bot").
+    opts["extract_flat"] = True
     q = (query or "").strip()
     if q.startswith(("http://", "https://")):
         meta = _fetcher_resolve(q)
@@ -231,7 +235,7 @@ def yt_search(query: str, max_results: int = 1):
                 "channel": "",
                 "thumbnails": [f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"],
             }]
-        LOGGER.warning("yt_search: fetcher resolve failed; falling back to container extract_info")
+        LOGGER.warning("yt_search: fetcher resolve failed; cannot resolve URL from this IP")
         target = q
     else:
         target = f"ytsearch{max_results}:{q}"
@@ -251,18 +255,24 @@ def yt_search(query: str, max_results: int = 1):
     entries = [info] if "entries" not in info else (info.get("entries") or [])
     out = []
     for e in entries:
-        if not e:
+        if not e or not e.get("id"):
             continue
+        vid = e.get("id")
         dur = int(e.get("duration") or 0)
+        thumbs = [
+            t.get("url") for t in (e.get("thumbnails") or [])
+            if isinstance(t, dict) and t.get("url")
+        ]
+        if not thumbs:
+            thumbs = [f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"]
         out.append({
-            "id": e.get("id"),
+            "id": vid,
             "title": e.get("title") or "",
             "duration": f"{dur // 60}:{dur % 60:02d}",
-            "url_suffix": "/watch?v=" + (e.get("id") or ""),
+            "url_suffix": "/watch?v=" + vid,
             "views": str(e.get("view_count") or ""),
             "channel": e.get("channel") or e.get("uploader") or "",
-            "thumbnails": [
-                t.get("url") for t in (e.get("thumbnails") or []) if t.get("url")
-            ],
+            "thumbnails": thumbs,
         })
+    LOGGER.info("yt_search: %r -> %d result(s)", q, len(out))
     return out

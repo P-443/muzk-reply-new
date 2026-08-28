@@ -11,10 +11,10 @@ requests, so it can get through on IPs where anonymous requests are bot-checked.
 
 This script is meant to run INSIDE the bot container at boot (see the Shahm
 entrypoint). Because it logs in from a datacenter IP, Google may itself
-challenge the login ("unusual traffic" checkpoint); in that case the script
-reports it clearly and exits non-zero, and the operator can instead supply
-cookies harvested from a clean IP via the YTDLP_COOKIES_B64 env var (the bot
-decodes that into cookies.txt automatically).
+challenge the login ("unusual traffic" checkpoint or a redirect to youtube.com's
+bot-check interstitial); in that case the script reports it clearly and exits
+non-zero, and the operator can instead supply cookies harvested from a clean IP
+via the YTDLP_COOKIES_B64 env var (the bot decodes that into cookies.txt).
 
 Env vars:
     YTDLP_USERNAME          Google email
@@ -47,10 +47,13 @@ MAX_WAIT = int(os.getenv("YTDLP_COOKIE_MAX_WAIT", "35"))
 # .google.com) plus __Secure-*APISID for authenticated innertube calls.
 KEEP = ("youtube.com", "google.com", "googlevideo.com", "ytimg.com")
 
-LOGIN_URL = (
+LOGIN_URLS = (
     "https://accounts.google.com/v3/signin/identifier"
     "?continue=https%3A%2F%2Fwww.youtube.com%2F"
-    "&service=youtube&flowName=GlifWebSignIn&flowEntry=ServiceLogin&hl=en"
+    "&service=youtube&flowName=GlifWebSignIn&flowEntry=ServiceLogin&hl=en",
+    "https://accounts.google.com/ServiceLogin"
+    "?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F&hl=en",
+    "https://accounts.google.com/signin",
 )
 
 SESSION_KEYS = (
@@ -102,6 +105,60 @@ def _click(driver, css):
         return False
 
 
+def find_email(driver):
+    """Return the email input, or None. Tries several entry points:
+    1. The page is already the Google sign-in form.
+    2. We landed on youtube.com (IP gate redirect) -> click its Sign-in link,
+       which should open the Google form in the same tab.
+    3. Alternative Google sign-in URLs.
+    Logs where we actually are at each step for diagnosis.
+    """
+    try:
+        box = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'input[type="email"]')))
+        return box
+    except Exception:
+        pass
+
+    url = driver.current_url or ""
+    title = driver.title or ""
+    log(f"not on sign-in form; url={url!r} title={title!r}")
+
+    if "youtube.com" in url:
+        log("redirected to youtube.com; trying its Sign-in link...")
+        try:
+            link = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'a[href*="accounts.google.com"]')))
+            link.click()
+        except Exception as e:
+            log(f"no clickable sign-in link on youtube.com ({e!r})")
+        try:
+            box = WebDriverWait(driver, MAX_WAIT).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'input[type="email"]')))
+            return box
+        except Exception:
+            log("sign-in link did not lead to the email form; url="
+                + repr(driver.current_url))
+            return None
+
+    for login_url in LOGIN_URLS[1:]:
+        log("trying login URL: " + login_url.split("?")[0])
+        try:
+            driver.get(login_url)
+            box = WebDriverWait(driver, MAX_WAIT).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'input[type="email"]')))
+            return box
+        except Exception:
+            continue
+    log("all sign-in entry points failed; final url="
+        + repr(driver.current_url) + " title=" + repr(driver.title))
+    return None
+
+
 def main():
     if not (EMAIL and PASSWORD):
         log("YTDLP_USERNAME / YTDLP_PASSWORD not set; nothing to do")
@@ -142,40 +199,41 @@ def main():
 
     try:
         log("navigating to Google sign-in...")
-        driver.get(LOGIN_URL)
+        driver.get(LOGIN_URLS[0])
     except Exception as e:
         log(f"goto failed: {e!r}")
         driver.save_screenshot(DEBUG_PNG)
         driver.quit()
         return 3
 
-    # 1) Email
-    try:
-        WebDriverWait(driver, MAX_WAIT).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]')))
-    except Exception:
-        log("no email field; title=" + repr(driver.title))
+    email_box = find_email(driver)
+    if email_box is None:
+        src = (driver.page_source or "").lower()
+        if "not a bot" in src or "unusual traffic" in src:
+            log("BLOCKED: youtube.com 'not a bot / unusual traffic' interstitial "
+                "- the datacenter-IP gate also blocks the login page itself.")
         driver.save_screenshot(DEBUG_PNG)
         driver.quit()
         return 4
-    driver.find_element(By.CSS_SELECTOR, 'input[type="email"]').send_keys(EMAIL)
+
+    email_box.send_keys(EMAIL)
     _click(driver, "#identifierNext")
     time.sleep(1.5)
 
-    # 2) Password
     try:
         WebDriverWait(driver, MAX_WAIT).until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'input[type="password"]')))
     except Exception:
-        log("no password field (checkpoint shown?); title=" + repr(driver.title))
+        log("no password field (checkpoint shown?); url="
+            + repr(driver.current_url) + " title=" + repr(driver.title))
         driver.save_screenshot(DEBUG_PNG)
         driver.quit()
         return 5
     driver.find_element(By.CSS_SELECTOR, 'input[type="password"]').send_keys(PASSWORD)
     _click(driver, "#passwordNext")
 
-    # 3) Wait for the session to settle, answering 2FA if we can.
+    # Wait for the session to settle, answering 2FA if we can.
     log("submitted credentials; waiting for session cookies...")
     deadline = time.time() + MAX_WAIT
     got = False
@@ -198,16 +256,17 @@ def main():
 
     if not got:
         src = (driver.page_source or "").lower()
-        if "unusual traffic" in src:
-            log("BLOCKED: Google is showing an 'unusual traffic / verify '"
-                "you are not a bot' checkpoint - the datacenter-IP gate.")
+        if "unusual traffic" in src or "not a bot" in src:
+            log("BLOCKED: 'not a bot / unusual traffic' after login attempt "
+                "(datacenter-IP gate).")
         else:
-            log("no SID/SAPISID after login; title=" + repr(driver.title))
+            log("no SID/SAPISID after login; url=" + repr(driver.current_url)
+                + " title=" + repr(driver.title))
         driver.save_screenshot(DEBUG_PNG)
         driver.quit()
         return 6
 
-    # 4) Touch youtube.com so its session cookies are set.
+    # Touch youtube.com so its session cookies are set.
     try:
         driver.get("https://www.youtube.com/")
         time.sleep(2)

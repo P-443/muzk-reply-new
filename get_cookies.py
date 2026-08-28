@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Browser auto-login cookie harvester for YouTube (produces a yt-dlp cookiefile).
 
-Uses Playwright (a headless Chromium) to sign into a Google/YouTube account
-with plain credentials (email + password, optional 2FA code) and exports the
-resulting session cookies as a Netscape-format cookies.txt. yt-dlp consumes
-that file via its `cookiefile` option -- exactly the "--cookies" path yt-dlp's
-own "Sign in to confirm you're not a bot" error recommends. A logged-in session
-is a higher YouTube trust tier than anonymous requests, so it can get through
-on IPs where anonymous requests are bot-checked.
+Uses Selenium driving the system Chromium (apt-installed in the image) to sign
+into a Google/YouTube account with plain credentials (email + password, optional
+2FA code) and exports the resulting session cookies as a Netscape-format
+cookies.txt. yt-dlp consumes that file via its `cookiefile` option -- exactly
+the "--cookies" path yt-dlp's own "Sign in to confirm you're not a bot" error
+recommends. A logged-in session is a higher YouTube trust tier than anonymous
+requests, so it can get through on IPs where anonymous requests are bot-checked.
 
 This script is meant to run INSIDE the bot container at boot (see the Shahm
 entrypoint). Because it logs in from a datacenter IP, Google may itself
@@ -29,7 +29,11 @@ import os
 import sys
 import time
 
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 OUT = "/app/cookies.txt"
 DEBUG_PNG = "/app/cookie_debug.png"
@@ -72,8 +76,10 @@ def write_netscape(cookies, path):
             continue
         include_sub = "TRUE" if domain.startswith(".") else "FALSE"
         secure = "TRUE" if c.get("secure") else "FALSE"
+        # Selenium reports the expiry under 'expiry' (seconds); some drivers
+        # use 'expires'. 0 / missing means a session cookie.
         try:
-            expires = int(c.get("expires", 0) or 0)
+            expires = int(c.get("expiry") or c.get("expires") or 0)
         except (TypeError, ValueError):
             expires = 0
         if expires < 0:
@@ -88,31 +94,12 @@ def write_netscape(cookies, path):
     return kept
 
 
-def wait_for_selector(page, selectors, desc=""):
-    deadline = time.time() + MAX_WAIT
-    while time.time() < deadline:
-        for sel in selectors:
-            try:
-                el = page.query_selector(sel)
-                if el and el.is_visible():
-                    return el
-            except Exception:
-                pass
-        time.sleep(0.5)
-    log(f"timed out waiting for {desc or selectors}")
-    return None
-
-
-def click_first(page, selectors):
-    for sel in selectors:
-        try:
-            el = page.query_selector(sel)
-            if el:
-                el.click()
-                return True
-        except Exception:
-            pass
-    return False
+def _click(driver, css):
+    try:
+        driver.find_element(By.CSS_SELECTOR, css).click()
+        return True
+    except Exception:
+        return False
 
 
 def main():
@@ -120,122 +107,122 @@ def main():
         log("YTDLP_USERNAME / YTDLP_PASSWORD not set; nothing to do")
         return 0
 
-    with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                    "--lang=en",
-                ],
-            )
-        except Exception as e:
-            log(f"chromium launch failed: {e!r}")
-            return 2
+    options = webdriver.ChromeOptions()
+    options.binary_location = "/usr/bin/chromium"
+    for arg in (
+        "--headless=new",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-blink-features=AutomationControlled",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--lang=en",
+        "--window-size=1280,800",
+    ):
+        options.add_argument(arg)
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
 
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            locale="en-US",
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
-            ),
-        )
+    try:
+        driver = webdriver.Chrome(
+            service=Service("/usr/bin/chromedriver"), options=options)
+    except Exception as e:
+        log(f"chrome launch failed: {e!r}")
+        return 2
+
+    driver.set_page_load_timeout(45)
+    try:
         # Hide the automation fingerprint most likely to trip Google's checks.
-        context.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        )
-        page = context.new_page()
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
+        })
+    except Exception:
+        pass
 
-        try:
-            log("navigating to Google sign-in...")
-            page.goto(LOGIN_URL, timeout=45000, wait_until="domcontentloaded")
-        except Exception as e:
-            log(f"goto failed: {e!r}")
-            page.screenshot(path=DEBUG_PNG)
-            browser.close()
-            return 3
+    try:
+        log("navigating to Google sign-in...")
+        driver.get(LOGIN_URL)
+    except Exception as e:
+        log(f"goto failed: {e!r}")
+        driver.save_screenshot(DEBUG_PNG)
+        driver.quit()
+        return 3
 
-        # 1) Email
-        email_box = wait_for_selector(
-            page, ['input[type="email"]', "#identifierId"], desc="email field")
-        if email_box is None:
-            log("no email field found; title=" + repr(page.title()))
-            page.screenshot(path=DEBUG_PNG)
-            browser.close()
-            return 4
-        email_box.fill(EMAIL)
-        if not click_first(page, ["#identifierNext", 'button[jsname]']):
-            log("no 'Next' button after email")
-            browser.close()
-            return 4
-        time.sleep(1.5)
+    # 1) Email
+    try:
+        WebDriverWait(driver, MAX_WAIT).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]')))
+    except Exception:
+        log("no email field; title=" + repr(driver.title))
+        driver.save_screenshot(DEBUG_PNG)
+        driver.quit()
+        return 4
+    driver.find_element(By.CSS_SELECTOR, 'input[type="email"]').send_keys(EMAIL)
+    _click(driver, "#identifierNext")
+    time.sleep(1.5)
 
-        # 2) Password
-        pass_box = wait_for_selector(
-            page,
-            ['input[type="password"]', "#password", 'input[name="password"]'],
-            desc="password field",
-        )
-        if pass_box is None:
-            log("no password field (checkpoint shown); title=" + repr(page.title()))
-            page.screenshot(path=DEBUG_PNG)
-            browser.close()
-            return 5
-        pass_box.fill(PASSWORD)
-        if not click_first(page, ["#passwordNext", 'button[jsname]']):
-            log("no 'Next' button after password")
-            browser.close()
-            return 5
+    # 2) Password
+    try:
+        WebDriverWait(driver, MAX_WAIT).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'input[type="password"]')))
+    except Exception:
+        log("no password field (checkpoint shown?); title=" + repr(driver.title))
+        driver.save_screenshot(DEBUG_PNG)
+        driver.quit()
+        return 5
+    driver.find_element(By.CSS_SELECTOR, 'input[type="password"]').send_keys(PASSWORD)
+    _click(driver, "#passwordNext")
 
-        # 3) Wait for the session to settle, answering 2FA if we can.
-        log("submitted credentials; waiting for session cookies...")
-        deadline = time.time() + MAX_WAIT
-        got = False
-        while time.time() < deadline:
-            cookies = context.cookies()
-            names = {c["name"] for c in cookies}
-            if "SID" in names and "SAPISID" in names:
-                got = True
-                break
-            if TWOFA:
-                totp = page.query_selector('input[name="totpPin"]') or page.query_selector(
-                    'input[autocomplete="one-time-code"]')
-                if totp:
-                    totp.fill(TWOFA)
-                    click_first(page, ["#totpNext", "button[jsname]"])
-            time.sleep(1)
+    # 3) Wait for the session to settle, answering 2FA if we can.
+    log("submitted credentials; waiting for session cookies...")
+    deadline = time.time() + MAX_WAIT
+    got = False
+    while time.time() < deadline:
+        names = {c["name"] for c in driver.get_cookies()}
+        if "SID" in names and "SAPISID" in names:
+            got = True
+            break
+        if TWOFA:
+            try:
+                totp = driver.find_element(
+                    By.CSS_SELECTOR,
+                    'input[name="totpPin"], input[autocomplete="one-time-code"]',
+                )
+                totp.send_keys(TWOFA)
+                _click(driver, "#totpNext")
+            except Exception:
+                pass
+        time.sleep(1)
 
-        if not got:
-            text = page.content().lower()
-            if "unusual traffic" in text or ("automated" in text and "detect" in text):
-                log("BLOCKED: Google is showing an 'unusual traffic / verify '"
-                    "you are not a bot' checkpoint - the datacenter-IP gate.")
-            else:
-                log("no SID/SAPISID after login; title=" + repr(page.title()))
-            page.screenshot(path=DEBUG_PNG)
-            browser.close()
-            return 6
+    if not got:
+        src = (driver.page_source or "").lower()
+        if "unusual traffic" in src:
+            log("BLOCKED: Google is showing an 'unusual traffic / verify '"
+                "you are not a bot' checkpoint - the datacenter-IP gate.")
+        else:
+            log("no SID/SAPISID after login; title=" + repr(driver.title))
+        driver.save_screenshot(DEBUG_PNG)
+        driver.quit()
+        return 6
 
-        # 4) Touch youtube.com so its session cookies are set.
-        try:
-            page.goto("https://www.youtube.com/", timeout=30000, wait_until="domcontentloaded")
-            time.sleep(2)
-        except Exception:
-            pass
+    # 4) Touch youtube.com so its session cookies are set.
+    try:
+        driver.get("https://www.youtube.com/")
+        time.sleep(2)
+    except Exception:
+        pass
 
-        n = write_netscape(context.cookies(), OUT)
-        names = {c["name"] for c in context.cookies()}
-        have = [k for k in SESSION_KEYS if k in names]
-        log(f"wrote {n} cookies -> {OUT}; key session cookies: {have}")
-        browser.close()
-        if have:
-            return 0
-        log("session cookies missing; written cookies may not carry a valid login")
-        return 7
+    n = write_netscape(driver.get_cookies(), OUT)
+    names = {c["name"] for c in driver.get_cookies()}
+    have = [k for k in SESSION_KEYS if k in names]
+    log(f"wrote {n} cookies -> {OUT}; key session cookies: {have}")
+    driver.quit()
+    if have:
+        return 0
+    log("session cookies missing; written cookies may not carry a valid login")
+    return 7
 
 
 if __name__ == "__main__":

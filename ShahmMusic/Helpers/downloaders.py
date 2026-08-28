@@ -235,8 +235,19 @@ def yt_search(query: str, max_results: int = 1):
         target = q
     else:
         target = f"ytsearch{max_results}:{q}"
-    with YoutubeDL(opts) as search_ydl:
-        info = search_ydl.extract_info(target, download=False)
+    try:
+        with YoutubeDL(opts) as search_ydl:
+            info = search_ydl.extract_info(target, download=False)
+    except Exception as e:
+        LOGGER.error("yt_search: extract_info FAILED for %r: %r", q, e)
+        if "Sign in to confirm" in str(e) or "not a bot" in str(e):
+            LOGGER.error(
+                "yt_search: DIAGNOSIS: this container's datacenter IP is flagged "
+                "by YouTube -- cookies alone do NOT bypass it. Working fixes: "
+                "YTDLP_PROXY=<residential proxy> (best) OR the clean-IP fetcher "
+                "YTDLP_FETCHER_URL=<fresh tunnel>.",
+            )
+        raise
     entries = [info] if "entries" not in info else (info.get("entries") or [])
     out = []
     for e in entries:

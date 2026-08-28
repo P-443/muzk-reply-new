@@ -21,6 +21,40 @@ _FETCHER_URL = os.getenv("YTDLP_FETCHER_URL")
 _COOKIES = os.getenv("YTDLP_COOKIES")
 _PROXY = os.getenv("YTDLP_PROXY")
 
+
+def _redact(v: str) -> str:
+    """Redact a secret for the logs (proxy creds etc.)."""
+    if not v:
+        return "NOT SET"
+    if len(v) <= 12:
+        return v[:3] + "***"
+    return v[:6] + "..." + v[-3:]
+
+
+def _cookie_stats(path):
+    """Return (size_bytes, entry_count) for a cookies file, or None if absent.
+
+    Strong boot logging so Coolify shows exactly which cookies file yt-dlp
+    will use and whether it parsed any entries.
+    """
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            lines = f.read().splitlines()
+        entries = sum(1 for ln in lines if ln and not ln.startswith("#"))
+        return (os.path.getsize(path), entries)
+    except Exception as e:
+        LOGGER.warning(f"downloaders: cannot read cookies file {path!r}: {e!r}")
+        return None
+
+
+_COOKIE_STAT = _cookie_stats(_COOKIES)
+if _COOKIE_STAT:
+    LOGGER.info(
+        "downloaders: cookiefile=%s size=%dB entries=%d",
+        _COOKIES, _COOKIE_STAT[0], _COOKIE_STAT[1],
+    )
 LOGGER.info(
     "downloaders: YTDLP_FETCHER_URL=%s YTDLP_COOKIES=%s YTDLP_PROXY=%s",
     "SET" if _FETCHER_URL else "NOT SET",
@@ -72,11 +106,18 @@ ydl_opts = {
     ],
 }
 
-if _COOKIES and os.path.exists(_COOKIES):
+if _COOKIE_STAT:
     ydl_opts["cookiefile"] = _COOKIES
+    LOGGER.info("downloaders: cookiefile wired -> %s", _COOKIES)
+elif _COOKIES:
+    LOGGER.warning("downloaders: YTDLP_COOKIES set but file missing/empty: %s", _COOKIES)
 if _PROXY:
     ydl_opts["proxy"] = _PROXY
 
+LOGGER.info(
+    "downloaders: yt-dlp player_clients=%s",
+    ydl_opts["extractor_args"]["youtube"]["player_client"],
+)
 ydl = YoutubeDL(ydl_opts)
 
 
@@ -105,17 +146,38 @@ def _audio_dl_via_fetcher(url: str) -> str:
 
 
 def audio_dl(url: str) -> str:
+    vid = _video_id(url)
     if _FETCHER_URL:
         try:
-            LOGGER.info(f"audio_dl: fetching via fetcher ({_FETCHER_URL})")
+            LOGGER.info(f"audio_dl: [{vid}] fetching via fetcher ({_FETCHER_URL})")
             return _audio_dl_via_fetcher(url)
         except Exception as e:
-            LOGGER.error(f"audio_dl: fetcher failed ({e!r}); falling back to yt-dlp")
-    sin = ydl.extract_info(url, False)
+            LOGGER.error(f"audio_dl: [{vid}] fetcher failed ({e!r}); falling back to yt-dlp")
+    LOGGER.info(
+        "audio_dl: [%s] container yt-dlp cookiefile=%s proxy=%s",
+        vid,
+        os.path.basename(_COOKIES) if _COOKIE_STAT else "none",
+        _redact(_PROXY),
+    )
+    try:
+        sin = ydl.extract_info(url, False)
+    except Exception as e:
+        LOGGER.error("audio_dl: [%s] extract_info FAILED: %r", vid, e)
+        if "Sign in to confirm" in str(e) or "not a bot" in str(e):
+            LOGGER.error(
+                "audio_dl: [%s] DIAGNOSIS: this container's datacenter IP is "
+                "flagged by YouTube -- cookies alone do NOT bypass it. Working "
+                "fixes: YTDLP_PROXY=<residential proxy> (best) OR the clean-IP "
+                "fetcher YTDLP_FETCHER_URL=<fresh tunnel>.",
+                vid,
+            )
+        raise
     x_file = os.path.join("downloads", f"{sin['id']}.mp3")
     if os.path.exists(x_file):
         return x_file
+    LOGGER.info("audio_dl: [%s] downloading audio stream...", vid)
     ydl.download([url])
+    LOGGER.info("audio_dl: [%s] done -> %s", vid, x_file)
     return x_file
 
 

@@ -28,6 +28,7 @@ clear message and saves a screenshot to /app/cookie_debug.png for inspection.
 import os
 import sys
 import time
+from urllib.parse import urlparse
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -125,7 +126,7 @@ def find_email(driver):
     title = driver.title or ""
     log(f"not on sign-in form; url={url!r} title={title!r}")
 
-    if "youtube.com" in url:
+    if urlparse(url).netloc in ("youtube.com", "www.youtube.com"):
         log("redirected to youtube.com; trying its Sign-in link...")
         try:
             link = WebDriverWait(driver, 10).until(

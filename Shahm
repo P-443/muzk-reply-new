@@ -23,22 +23,15 @@ if [ -f /opt/bgutil-pot/server/build/main.js ]; then
 fi
 
 cd /app
-# Harvest YouTube cookies via browser auto-login (Playwright) so yt-dlp runs
-# with a logged-in session. This is the "--cookies" path yt-dlp's own bot-check
-# error recommends. On a datacenter IP the login itself may be bot-checked; if
-# so it's logged clearly and the bot still runs cookie-less (the operator can
-# supply cookies via YTDLP_COOKIES_B64 instead).
-if [ -n "$YTDLP_USERNAME" ] && [ -n "$YTDLP_PASSWORD" ] && [ -f /app/get_cookies.py ]; then
-    echo "[Shahm] harvesting YouTube cookies (browser auto-login)..."
-    python3 /app/get_cookies.py
-    rc=$?
-    echo "[Shahm] cookie harvester exit code: $rc"
-    if [ -s /app/cookies.txt ]; then
-        echo "[Shahm] cookies.txt ready ($(grep -c -v '^#' /app/cookies.txt) entries)"
-    else
-        echo "[Shahm] no cookies.txt produced; continuing cookie-less"
-    fi
-fi
+# NOTE: the browser auto-login cookie harvest (get_cookies.py) is intentionally
+# NOT run at boot anymore. Two reasons:
+#   1) From this datacenter IP, Google serves its own bot-check instead of the
+#      sign-in form (proven), so the harvest never produces cookies.
+#   2) Launching headless Chromium at boot destabilized the container (crash
+#      restarts before the bot could start).
+# The bot starts cookie-less. If the operator supplies cookies later they land
+# in cookies.txt (via YTDLP_COOKIES_B64) and are picked up on next restart.
+# The harvester can still be run manually:  python3 /app/get_cookies.py
 # Keep the container alive: if the bot exits (e.g. a Telegram FloodWait on bot
 # login, a fatal error, or a crash), wait and retry instead of letting the
 # container die and enter Coolify's crash/restart loop.

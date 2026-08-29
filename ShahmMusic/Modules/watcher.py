@@ -5,7 +5,7 @@ from pytgcalls.types import AudioPiped, HighQualityAudio, Update
 
 from ShahmMusic import BOT_ID, BOT_USERNAME, app, app2, Shahmdb, pytgcalls
 from ShahmMusic.Helpers import _clear_, buttons, gen_thumb
-from ShahmMusic.Helpers.button_style import apply_styles
+from ShahmMusic.Helpers.button_style import STARTED_TAG, apply_styles
 
 welcome = 20
 close = 30
@@ -85,7 +85,7 @@ async def on_stream_end(pytgcalls, update: Update):
         wmsg = await app.send_photo(
             chat_id=chat_id,
             photo=img,
-            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
+            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |** {STARTED_TAG}\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
             reply_markup=buttons,
         )
         await apply_styles(wmsg, buttons)

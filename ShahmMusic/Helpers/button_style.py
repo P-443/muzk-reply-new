@@ -25,6 +25,7 @@ DOWNLOAD_EMOJI_ID = "5877307202888273539"   # 📥
 CHECK_EMOJI_ID = "5260726538302660868"      # ✅
 THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 SMILE_EMOJI_ID = "5222108309795908493"      # 😊
+STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started Streaming line
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
@@ -32,6 +33,7 @@ DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">📥</emoji>'
 CHECK_TAG = f'<emoji id="{CHECK_EMOJI_ID}">✅</emoji>'
 THUNDER_TAG = f'<emoji id="{THUNDER_EMOJI_ID}">⚡</emoji>'
 SMILE_TAG = f'<emoji id="{SMILE_EMOJI_ID}">😊</emoji>'
+STARTED_TAG = f'<emoji id="{STARTED_EMOJI_ID}">🎵</emoji>'
 
 _TOKEN = config.BOT_TOKEN
 _BASE = (config.BOT_API_URL if hasattr(config, "BOT_API_URL") else None) or "https://api.telegram.org"

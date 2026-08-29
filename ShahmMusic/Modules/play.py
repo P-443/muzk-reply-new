@@ -29,7 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
-from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, THUNDER_TAG, apply_styles
+from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, STARTED_TAG, THUNDER_TAG, apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, run_in_thread, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
@@ -232,7 +232,7 @@ async def play(_, message: Message):
         await add_active_chat(message.chat.id)
         pmsg = await message.reply_photo(
             photo=imgt,
-            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {ruser}",
+            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |** {STARTED_TAG}\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {ruser}",
             reply_markup=buttons,
         )
         await apply_styles(pmsg, buttons)

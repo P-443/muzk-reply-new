@@ -201,7 +201,7 @@ async def play(_, message: Message):
         qimg = await gen_qthumb(videoid, message.from_user.id)
         qmsg = await message.reply_photo(
             photo=qimg,
-            caption=f"**⌔︙ تمت الإضافة إلى قائمة الانتظار في {position}** {HEADPHONE_TAG}\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **مطلوب بواسطة :** {ruser}",
+            caption=f"**⌔︙ Aᴅᴅᴇᴅ ᴛᴏ Qᴜᴇᴜᴇ #{position}**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {ruser}",
             reply_markup=buttons,
         )
         await apply_styles(qmsg, buttons)
@@ -232,7 +232,7 @@ async def play(_, message: Message):
         await add_active_chat(message.chat.id)
         pmsg = await message.reply_photo(
             photo=imgt,
-            caption=f"**⌔︙ تم التشغيل {HEADPHONE_TAG}**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **بواسطه :** {ruser}",
+            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {ruser}",
             reply_markup=buttons,
         )
         await apply_styles(pmsg, buttons)

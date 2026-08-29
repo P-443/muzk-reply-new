@@ -54,7 +54,7 @@ async def skip_str(_, message: Message):
         img = await gen_thumb(videoid, user_id)
         skmsg = await message.reply_photo(
             photo=img,
-            caption=f"**⌔︙ بدء التشغيل**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المدة :** `{duration}` دقيقه\n⌔︙ **بواسطه :** {req_by}",
+            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
             reply_markup=buttons,
         )
         await apply_styles(skmsg, buttons)

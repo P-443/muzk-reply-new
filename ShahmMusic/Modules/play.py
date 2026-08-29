@@ -29,7 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
-from ShahmMusic.Helpers.button_style import GUITAR_TAG, HEADPHONE_TAG, apply_styles
+from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
@@ -101,7 +101,7 @@ async def play(_, message: Message):
             await app2.join_chat(invitelink)
             await asyncio.sleep(2)
             await Shahm.edit_text(
-                f"{ASS_NAME} **  دخلت يا صحبي ✅,\n\n بدء التشغيل..."
+                f"{ASS_NAME} **  دخلت يا صحبي {CHECK_TAG},\n\n بدء التشغيل..."
             )
         except UserAlreadyParticipant:
             pass

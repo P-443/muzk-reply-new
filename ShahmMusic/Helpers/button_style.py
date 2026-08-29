@@ -22,10 +22,12 @@ from ShahmMusic import LOGGER
 HEADPHONE_EMOJI_ID = "6007938409857815902"  # 🎧
 GUITAR_EMOJI_ID = "5348242647351834121"     # 🎸
 DOWNLOAD_EMOJI_ID = "5877307202888273539"   # 📥
+CHECK_EMOJI_ID = "5260726538302660868"      # ✅
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
 DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">📥</emoji>'
+CHECK_TAG = f'<emoji id="{CHECK_EMOJI_ID}">✅</emoji>'
 
 _TOKEN = config.BOT_TOKEN
 _BASE = (config.BOT_API_URL if hasattr(config, "BOT_API_URL") else None) or "https://api.telegram.org"
@@ -58,22 +60,30 @@ def _style_for(btn: InlineKeyboardButton) -> str:
 
 
 def _to_api_button(btn: InlineKeyboardButton):
-    out = {"text": btn.text or ""}
+    text = btn.text or ""
+    if not text.strip():
+        # Empty-text spacer/placeholder button (the invisible support/owner
+        # placeholders). The Bot API rejects buttons with empty text, so give
+        # it a zero-width space -- still renders invisible, keyboard parses.
+        text = "​"
+    out = {"text": text}
     if btn.url:
         out["url"] = btn.url
     elif getattr(btn, "user_id", None) is not None:
-        out["user_id"] = int(btn.user_id)
+        # The Bot API has no `user_id` button type -- Telegram's parser sees a
+        # button with only text and rejects it. Reproduce it as a tg://user
+        # deep link, which opens the same user's chat.
+        out["url"] = f"tg://user?id={int(btn.user_id)}"
     elif btn.callback_data is not None:
         out["callback_data"] = str(btn.callback_data)
     else:
-        # Text-only or an empty spacer button (empty url etc.) -- Telegram's
-        # Bot API rejects those, so drop the button instead.
+        # Text-only (or empty spacer with no action) -- Telegram rejects
+        # those, so drop the button instead.
         return None
     # switch_inline_query / web_app / login_url aren't used by this bot.
 
-    # Color on every labeled button. Empty spacer buttons (the invisible
-    # support/developer placeholders) stay plain.
-    if btn.text:
+    # Color on every labeled button. Empty spacer buttons stay plain.
+    if text.strip():
         out["style"] = _style_for(btn)
     return out
 

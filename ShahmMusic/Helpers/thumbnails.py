@@ -1,5 +1,6 @@
 import os
 import re
+import urllib.request
 import aiofiles
 import aiohttp
 import numpy as np
@@ -12,16 +13,36 @@ from config import FAILED, OWNER_ID
 from ShahmMusic import BOT_ID, LOGGER, app
 
 
+def get_arabic_font(size):
+    """تأكيد وجود خط عربي شغّال؛ وفي حال عدم وجوده يتم تحميل خط Cairo أوتوماتيكياً"""
+    font_path = "ShahmMusic/Helpers/utils/font2.ttf"
+    fallback_font = "cache/Cairo-Bold.ttf"
+
+    # لو الخط الأول مش موجود، يتم تنزيل خط القاهرة العربي تلقائياً
+    if not os.path.exists(font_path):
+        if not os.path.exists(fallback_font):
+            os.makedirs("cache", exist_ok=True)
+            try:
+                url = "https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Bold.ttf"
+                urllib.request.urlretrieve(url, fallback_font)
+            except Exception as e:
+                LOGGER.error(f"Failed to download Arabic font: {e}")
+        if os.path.exists(fallback_font):
+            font_path = fallback_font
+
+    try:
+        return ImageFont.truetype(font_path, size)
+    except Exception:
+        return ImageFont.load_default()
+
+
 def fix_arabic_text(text):
-    """معالجة وتعديل اتجاه النص العربي"""
+    """معالجة النص العربي وتحويله بدون مسح الحروف"""
     if not text:
         return ""
     try:
-        # إعادة تشكيل الحروف العربية وربطها
         reshaped_text = arabic_reshaper.reshape(text)
-        # ضبط الاتجاه من اليمين لليسار
-        bidi_text = get_display(reshaped_text)
-        return bidi_text
+        return get_display(reshaped_text)
     except Exception:
         return text
 
@@ -51,22 +72,6 @@ def get_text_size(draw, text, font):
         return draw.textsize(text, font=font)
 
 
-def load_arabic_font(size):
-    """تحميل خط يدعم العربية مع حلول بديلة في حال عدم وجود الخط الأساسي"""
-    font_paths = [
-        "ShahmMusic/Helpers/utils/font2.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # متوفر غالباً في السيرفرات واللينكس
-        "arial.ttf",
-    ]
-    for path in font_paths:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception:
-                continue
-    return ImageFont.load_default()
-
-
 async def gen_thumb(videoid, user_id):
     if os.path.isfile(f"cache/{videoid}_{user_id}.png"):
         return f"cache/{videoid}_{user_id}.png"
@@ -74,14 +79,8 @@ async def gen_thumb(videoid, user_id):
     try:
         results = VideosSearch(url, limit=1)
         for result in (await results.next())["result"]:
-            try:
-                title = result["title"]
-            except:
-                title = "Unsupported Title"
-            try:
-                duration = result["duration"]
-            except:
-                duration = "Unknown"
+            title = result.get("title", "Unsupported Title")
+            duration = result.get("duration", "Unknown")
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
 
         async with aiohttp.ClientSession() as session:
@@ -112,7 +111,7 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. إظهار معالم صورة اليوتيوب في الخلفية (تخفيف التضبيب)
+        # 1. إظهار خلفية اليوتيوب بشكل موضح
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
         background = background.filter(ImageFilter.GaussianBlur(6))
@@ -124,7 +123,7 @@ async def gen_thumb(videoid, user_id):
         glass_draw = ImageDraw.Draw(glass)
         glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 110), outline=(255, 255, 255, 90), width=2)
 
-        # 3. قص وتجهيز صورة المطور
+        # 3. قص وصورة المطور
         owner_img = Image.open(wxy).convert("RGBA")
         sq_size = 360
         min_dim = min(owner_img.width, owner_img.height)
@@ -135,10 +134,10 @@ async def gen_thumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 4. تحميل الخطوط المقاومة لمشاكل العربي
-        font_title = load_arabic_font(36)
-        font_sub = load_arabic_font(26)
-        font_small = load_arabic_font(22)
+        # 4. تحميل الخطوط المضمونة للغة العربية
+        font_title = get_arabic_font(36)
+        font_sub = get_arabic_font(26)
+        font_small = get_arabic_font(22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -146,7 +145,7 @@ async def gen_thumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
         draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # معالجة العنوان العربي
+        # تجهيز عنوان الأغنية مع معالجة العربي
         short_title = title[:24] + "..." if len(title) > 24 else title
         formatted_title = fix_arabic_text(short_title)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
@@ -189,14 +188,8 @@ async def gen_qthumb(videoid, user_id):
     try:
         results = VideosSearch(url, limit=1)
         for result in (await results.next())["result"]:
-            try:
-                title = result["title"]
-            except:
-                title = "Unsupported Title"
-            try:
-                duration = result["duration"]
-            except:
-                duration = "Unknown"
+            title = result.get("title", "Unsupported Title")
+            duration = result.get("duration", "Unknown")
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
 
         async with aiohttp.ClientSession() as session:
@@ -246,9 +239,9 @@ async def gen_qthumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        font_title = load_arabic_font(36)
-        font_sub = load_arabic_font(26)
-        font_small = load_arabic_font(22)
+        font_title = get_arabic_font(36)
+        font_sub = get_arabic_font(26)
+        font_small = get_arabic_font(22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460

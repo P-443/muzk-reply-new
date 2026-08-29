@@ -1,6 +1,5 @@
 import os
 import re
-import urllib.request
 import aiofiles
 import aiohttp
 import numpy as np
@@ -13,38 +12,37 @@ from config import FAILED, OWNER_ID
 from ShahmMusic import BOT_ID, LOGGER, app
 
 
-def get_arabic_font(size):
-    """تأكيد وجود خط عربي شغّال؛ وفي حال عدم وجوده يتم تحميل خط Cairo أوتوماتيكياً"""
-    font_path = "ShahmMusic/Helpers/utils/font2.ttf"
-    fallback_font = "cache/Cairo-Bold.ttf"
-
-    # لو الخط الأول مش موجود، يتم تنزيل خط القاهرة العربي تلقائياً
-    if not os.path.exists(font_path):
-        if not os.path.exists(fallback_font):
-            os.makedirs("cache", exist_ok=True)
-            try:
-                url = "https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Bold.ttf"
-                urllib.request.urlretrieve(url, fallback_font)
-            except Exception as e:
-                LOGGER.error(f"Failed to download Arabic font: {e}")
-        if os.path.exists(fallback_font):
-            font_path = fallback_font
-
-    try:
-        return ImageFont.truetype(font_path, size)
-    except Exception:
-        return ImageFont.load_default()
-
-
 def fix_arabic_text(text):
-    """معالجة النص العربي وتحويله بدون مسح الحروف"""
+    """معالجة النص العربي وتحويل الاتجاه بشكل آمن"""
     if not text:
         return ""
     try:
+        # تشكيل وربط الحروف العربية
         reshaped_text = arabic_reshaper.reshape(text)
-        return get_display(reshaped_text)
-    except Exception:
+        # تعديل الاتجاه من اليمين لليسار
+        bidi_text = get_display(reshaped_text)
+        return bidi_text
+    except Exception as e:
+        LOGGER.error(f"Error shaping arabic text: {e}")
         return text
+
+
+async def download_arabic_font():
+    """تنزيل خط عربي مضمون دعم كامل للرموز وتخزينه محلياً"""
+    font_path = "cache/Cairo-Bold.ttf"
+    if not os.path.exists(font_path):
+        os.makedirs("cache", exist_ok=True)
+        url = "https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Bold.ttf"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        f = await aiofiles.open(font_path, mode="wb")
+                        await f.write(await resp.read())
+                        await f.close()
+        except Exception as e:
+            LOGGER.error(f"Failed to download font: {e}")
+    return font_path if os.path.exists(font_path) else "ShahmMusic/Helpers/utils/font2.ttf"
 
 
 def changeImageSize(maxWidth, maxHeight, image):
@@ -90,7 +88,7 @@ async def gen_thumb(videoid, user_id):
                     await f.write(await resp.read())
                     await f.close()
 
-        # جلب صورة مالك البوت (المطور)
+        # جلب صورة المطور/المالك
         try:
             owner_user = await app.get_users(OWNER_ID)
             wxy = await app.download_media(
@@ -111,7 +109,7 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. إظهار خلفية اليوتيوب بشكل موضح
+        # 1. إظهار صورة اليوتيوب في الخلفية
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
         background = background.filter(ImageFilter.GaussianBlur(6))
@@ -134,10 +132,11 @@ async def gen_thumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 4. تحميل الخطوط المضمونة للغة العربية
-        font_title = get_arabic_font(36)
-        font_sub = get_arabic_font(26)
-        font_small = get_arabic_font(22)
+        # 4. تحميل الخط العربي المضمن
+        active_font_path = await download_arabic_font()
+        font_title = ImageFont.truetype(active_font_path, 36)
+        font_sub = ImageFont.truetype(active_font_path, 26)
+        font_small = ImageFont.truetype(active_font_path, 22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -145,9 +144,11 @@ async def gen_thumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
         draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # تجهيز عنوان الأغنية مع معالجة العربي
+        # تجهيز عنوان الأغنية مع تحويل العربي
         short_title = title[:24] + "..." if len(title) > 24 else title
         formatted_title = fix_arabic_text(short_title)
+        
+        # طباعة العنوان العربي
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
         # Requested by
@@ -239,9 +240,10 @@ async def gen_qthumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        font_title = get_arabic_font(36)
-        font_sub = get_arabic_font(26)
-        font_small = get_arabic_font(22)
+        active_font_path = await download_arabic_font()
+        font_title = ImageFont.truetype(active_font_path, 36)
+        font_sub = ImageFont.truetype(active_font_path, 26)
+        font_small = ImageFont.truetype(active_font_path, 22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460

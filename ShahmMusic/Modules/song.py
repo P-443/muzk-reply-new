@@ -6,7 +6,7 @@ from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from ShahmMusic.Helpers.button_style import GUITAR_TAG, apply_styles
-from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
+from ShahmMusic.Helpers.downloaders import audio_dl, run_in_thread, yt_search
 
 from ShahmMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
 
@@ -21,14 +21,14 @@ async def song(_, message: Message):
 
     query = "".join(" " + str(i) for i in message.command[1:])
     try:
-        results = yt_search(query, 1)
+        results = await run_in_thread(yt_search, query, 1)
         if not results:
             raise Exception("لا توجد نتائج للبحث")
         link = f"https://youtube.com{results[0]['url_suffix']}"
         title = results[0]["title"][:40]
         thumbnail = results[0]["thumbnails"][0]
         thumb_name = f"thumb{title}.jpg"
-        thumb = requests.get(thumbnail, allow_redirects=True)
+        thumb = await run_in_thread(requests.get, thumbnail, allow_redirects=True)
         open(thumb_name, "wb").write(thumb.content)
         duration = results[0]["duration"]
 
@@ -40,7 +40,7 @@ async def song(_, message: Message):
 
     await m.edit_text("**⌔︙ يتم التحميل **\n\n**⌔︙ من فضلك انتظر")
     try:
-        audio_file = audio_dl(link)
+        audio_file = await run_in_thread(audio_dl, link)
         rep = f"⌔︙ **العنوان :** [{title[:23]}]({link}) {GUITAR_TAG}\n⌔︙ **المده :** `{duration}`\n⌔︙ ** بواسطة :** {BOT_MENTION}"
         secmul, dur, dur_arr = 1, 0, duration.split(":")
         for i in range(len(dur_arr) - 1, -1, -1):

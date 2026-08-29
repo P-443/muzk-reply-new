@@ -30,7 +30,7 @@ from ShahmMusic import (
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
 from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, THUNDER_TAG, apply_styles
-from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
+from ShahmMusic.Helpers.downloaders import audio_dl, run_in_thread, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
 from ShahmMusic.Helpers.inline import buttons
@@ -138,7 +138,7 @@ async def play(_, message: Message):
 
     elif url:
         try:
-            results = yt_search(url, 1)
+            results = await run_in_thread(yt_search, url, 1)
             title = results[0]["title"]
             duration = results[0]["duration"]
             videoid = results[0]["id"]
@@ -155,14 +155,14 @@ async def play(_, message: Message):
             return await Shahm.edit_text(
                 f"⌔︙ فشل التشغيل بسبب ان الاغنية طويلة {DURATION_LIMIT} شغل اغنية تانية {BOT_NAME}.."
             )
-        file_path = audio_dl(url)
+        file_path = await run_in_thread(audio_dl, url)
     else:
         if len(message.command) < 2:
             return await Shahm.edit_text(f"⌔︙ اكتب اسم الاغنية {HEADPHONE_TAG}")
         await Shahm.edit_text(THUNDER_TAG)
         query = message.text.split(None, 1)[1]
         try:
-            results = yt_search(query, 1)
+            results = await run_in_thread(yt_search, query, 1)
             url = f"https://youtube.com{results[0]['url_suffix']}"
             title = results[0]["title"]
             videoid = results[0]["id"]
@@ -181,7 +181,7 @@ async def play(_, message: Message):
             return await Shahm.edit(
                 f"⌔︙ فشل التشغيل بسبب ان الاغنية طويلة {DURATION_LIMIT} شغل اغنية تانية {BOT_NAME}.."
             )
-        file_path = audio_dl(url)
+        file_path = await run_in_thread(audio_dl, url)
 
     try:
         videoid = videoid

@@ -1,5 +1,7 @@
+import asyncio
 import os
 import re
+import threading
 
 import requests
 from yt_dlp import YoutubeDL
@@ -65,6 +67,29 @@ LOGGER.info(
 _VID_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})")
 
 
+def run_in_thread(func, *args):
+    """Run a blocking function in a daemon thread, returning an awaitable.
+
+    yt-dlp / requests downloads are synchronous and would otherwise block the
+    whole asyncio event loop, freezing the bot (no replies, no restart) for the
+    entire download. Offloading to a thread keeps the bot responsive. The
+    thread is daemon so a process restart mid-download does NOT wait for the
+    download to finish -- the container exits immediately.
+    """
+    loop = asyncio.get_running_loop()
+    fut = loop.create_future()
+
+    def _run():
+        try:
+            result = func(*args)
+            loop.call_soon_threadsafe(fut.set_result, result)
+        except BaseException as e:  # noqa: BLE001 - deliver any error to the caller
+            loop.call_soon_threadsafe(fut.set_exception, e)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return fut
+
+
 def _video_id(url: str) -> str:
     m = _VID_RE.search(url or "")
     return m.group(1) if m else "song"
@@ -101,7 +126,10 @@ ydl_opts = {
         {
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
-            "preferredquality": "320",
+            # 192 kbps: re-encoding to 320 was a big CPU + download cost on the
+            # proxied server and delayed playback start a lot. 192 still sounds
+            # clean in a Telegram voice call but encodes roughly 2x faster.
+            "preferredquality": "192",
         }
     ],
 }

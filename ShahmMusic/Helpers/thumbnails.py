@@ -13,12 +13,17 @@ from ShahmMusic import BOT_ID, LOGGER, app
 
 
 def fix_arabic_text(text):
-    """معالجة النص العربي لربط الحروف وضبط الاتجاه بشكل صحيح لـ PIL"""
+    """معالجة وتعديل اتجاه النص العربي"""
     if not text:
         return ""
-    reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return bidi_text
+    try:
+        # إعادة تشكيل الحروف العربية وربطها
+        reshaped_text = arabic_reshaper.reshape(text)
+        # ضبط الاتجاه من اليمين لليسار
+        bidi_text = get_display(reshaped_text)
+        return bidi_text
+    except Exception:
+        return text
 
 
 def changeImageSize(maxWidth, maxHeight, image):
@@ -46,6 +51,22 @@ def get_text_size(draw, text, font):
         return draw.textsize(text, font=font)
 
 
+def load_arabic_font(size):
+    """تحميل خط يدعم العربية مع حلول بديلة في حال عدم وجود الخط الأساسي"""
+    font_paths = [
+        "ShahmMusic/Helpers/utils/font2.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # متوفر غالباً في السيرفرات واللينكس
+        "arial.ttf",
+    ]
+    for path in font_paths:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
+
+
 async def gen_thumb(videoid, user_id):
     if os.path.isfile(f"cache/{videoid}_{user_id}.png"):
         return f"cache/{videoid}_{user_id}.png"
@@ -70,7 +91,7 @@ async def gen_thumb(videoid, user_id):
                     await f.write(await resp.read())
                     await f.close()
 
-        # جلب صورة المطور حصراً
+        # جلب صورة مالك البوت (المطور)
         try:
             owner_user = await app.get_users(OWNER_ID)
             wxy = await app.download_media(
@@ -91,19 +112,19 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. إعداد الخلفية من اليوتيوب مع إظهار معالمها (تخفيف الـ Blur إلى 8)
+        # 1. إظهار معالم صورة اليوتيوب في الخلفية (تخفيف التضبيب)
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(8))
-        background = ImageEnhance.Brightness(background).enhance(0.5)
+        background = background.filter(ImageFilter.GaussianBlur(6))
+        background = ImageEnhance.Brightness(background).enhance(0.55)
 
-        # 2. إنشاء الكارت الزجاجي الشفاف
+        # 2. إنشاء الكارت الزجاجي
         card_w, card_h = 1080, 480
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 100), outline=(255, 255, 255, 80), width=2)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 110), outline=(255, 255, 255, 90), width=2)
 
-        # 3. معالجة صورة المطور
+        # 3. قص وتجهيز صورة المطور
         owner_img = Image.open(wxy).convert("RGBA")
         sq_size = 360
         min_dim = min(owner_img.width, owner_img.height)
@@ -114,11 +135,10 @@ async def gen_thumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 4. كتابة النصوص
-        font_path = "ShahmMusic/Helpers/utils/font2.ttf"
-        font_title = ImageFont.truetype(font_path, 36)
-        font_sub = ImageFont.truetype(font_path, 26)
-        font_small = ImageFont.truetype(font_path, 22)
+        # 4. تحميل الخطوط المقاومة لمشاكل العربي
+        font_title = load_arabic_font(36)
+        font_sub = load_arabic_font(26)
+        font_small = load_arabic_font(22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -126,8 +146,8 @@ async def gen_thumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
         draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # معالجة عنوان الأغنية (عربي + إنجليزي)
-        short_title = title[:25] + "..." if len(title) > 25 else title
+        # معالجة العنوان العربي
+        short_title = title[:24] + "..." if len(title) > 24 else title
         formatted_title = fix_arabic_text(short_title)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
@@ -135,7 +155,7 @@ async def gen_thumb(videoid, user_id):
         req_text = fix_arabic_text(f"Requested by {user_tag}")
         draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
-        # 5. شريط التقدم
+        # 5. شريط التقديم
         bar_x1 = x_text
         bar_y = 310
         bar_x2 = card_w - 60
@@ -208,13 +228,13 @@ async def gen_qthumb(videoid, user_id):
 
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(8))
-        background = ImageEnhance.Brightness(background).enhance(0.5)
+        background = background.filter(ImageFilter.GaussianBlur(6))
+        background = ImageEnhance.Brightness(background).enhance(0.55)
 
         card_w, card_h = 1080, 480
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 100), outline=(255, 255, 255, 80), width=2)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 110), outline=(255, 255, 255, 90), width=2)
 
         owner_img = Image.open(wxy).convert("RGBA")
         sq_size = 360
@@ -226,10 +246,9 @@ async def gen_qthumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        font_path = "ShahmMusic/Helpers/utils/font2.ttf"
-        font_title = ImageFont.truetype(font_path, 36)
-        font_sub = ImageFont.truetype(font_path, 26)
-        font_small = ImageFont.truetype(font_path, 22)
+        font_title = load_arabic_font(36)
+        font_sub = load_arabic_font(26)
+        font_small = load_arabic_font(22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -237,7 +256,7 @@ async def gen_qthumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FF9800")
         draw_g.text((x_text + 25, 80), "ADDED TO QUEUE", fill="#FF9800", font=font_small)
 
-        short_title = title[:25] + "..." if len(title) > 25 else title
+        short_title = title[:24] + "..." if len(title) > 24 else title
         formatted_title = fix_arabic_text(short_title)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 

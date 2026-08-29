@@ -1,4 +1,3 @@
-
 import os
 import re
 import textwrap
@@ -18,45 +17,52 @@ def changeImageSize(maxWidth, maxHeight, image):
     heightRatio = maxHeight / image.size[1]
     newWidth = int(widthRatio * image.size[0])
     newHeight = int(heightRatio * image.size[1])
-    newImage = image.resize((newWidth, newHeight))
-    return newImage
+    return image.resize((newWidth, newHeight))
 
 
 def add_corners(im):
     bigsize = (im.size[0] * 3, im.size[1] * 3)
     mask = Image.new("L", bigsize, 0)
     ImageDraw.Draw(mask).ellipse((0, 0) + bigsize, fill=255)
-    mask = mask.resize(im.size, Image.ANTIALIAS)
+    
+    # دعم الإصدارات الحديثة من Pillow لفرز الحواف
+    try:
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample = Image.ANTIALIAS
+
+    mask = mask.resize(im.size, resample)
     mask = ImageChops.darker(mask, im.split()[-1])
     im.putalpha(mask)
+
+
+def get_text_size(draw, text, font):
+    """دالة مساعدة لمعرفة أبعاد النص بما يتوافق مع جميع إصدارات Pillow."""
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    except AttributeError:
+        return draw.textsize(text, font=font)
 
 
 async def gen_thumb(videoid, user_id):
     if os.path.isfile(f"cache/{videoid}_{user_id}.png"):
         return f"cache/{videoid}_{user_id}.png"
+        
     url = f"https://www.youtube.com/watch?v={videoid}"
     try:
         results = VideosSearch(url, limit=1)
         for result in (await results.next())["result"]:
             try:
                 title = result["title"]
-                title = re.sub("\W+", " ", title)
-                title = title.title()
-            except:
+                title = re.sub(r"\W+", " ", title).strip().title()
+            except Exception:
                 title = "Unsupported Title"
             try:
                 duration = result["duration"]
-            except:
+            except Exception:
                 duration = "Unknown"
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-            try:
-                result["viewCount"]["short"]
-            except:
-                pass
-            try:
-                result["channel"]["name"]
-            except:
-                pass
 
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail) as resp:
@@ -66,11 +72,16 @@ async def gen_thumb(videoid, user_id):
                     await f.close()
 
         try:
+            resample = Image.Resampling.LANCZOS
+        except AttributeError:
+            resample = Image.ANTIALIAS
+
+        try:
             wxy = await app.download_media(
                 (await app.get_users(user_id)).photo.big_file_id,
                 file_name=f"{user_id}.jpg",
             )
-        except:
+        except Exception:
             wxy = await app.download_media(
                 (await app.get_users(BOT_ID)).photo.big_file_id,
                 file_name=f"{BOT_ID}.jpg",
@@ -87,17 +98,15 @@ async def gen_thumb(videoid, user_id):
         x = f.resize((107, 107))
 
         youtube = Image.open(f"cache/thumb{videoid}.png")
-        bg = Image.open(f"ShahmMusic/Helpers/utils/circle.png")
+        
+        # تجهيز الخلفية مع التمويه
         image1 = changeImageSize(1280, 720, youtube)
         image2 = image1.convert("RGBA")
         background = image2.filter(filter=ImageFilter.BoxBlur(30))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.6)
 
-        image3 = changeImageSize(1280, 720, bg)
-        image5 = image3.convert("RGBA")
-        Image.alpha_composite(background, image5).save(f"cache/temp{videoid}.png")
-
+        # تحضير اللوجو/الغلاف الدائري
         Xcenter = youtube.width / 2
         Ycenter = youtube.height / 2
         x1 = Xcenter - 250
@@ -105,8 +114,9 @@ async def gen_thumb(videoid, user_id):
         x2 = Xcenter + 250
         y2 = Ycenter + 250
         logo = youtube.crop((x1, y1, x2, y2))
-        logo.thumbnail((520, 520), Image.ANTIALIAS)
+        logo.thumbnail((520, 520), resample)
         logo.save(f"cache/chop{videoid}.png")
+
         if not os.path.isfile(f"cache/cropped{videoid}.png"):
             im = Image.open(f"cache/chop{videoid}.png").convert("RGBA")
             add_corners(im)
@@ -114,63 +124,80 @@ async def gen_thumb(videoid, user_id):
 
         crop_img = Image.open(f"cache/cropped{videoid}.png")
         logo = crop_img.convert("RGBA")
-        logo.thumbnail((365, 365), Image.ANTIALIAS)
+        logo.thumbnail((365, 365), resample)
         width = int((1280 - 365) / 2)
-        background = Image.open(f"cache/temp{videoid}.png")
-        background.paste(logo, (width + 2, 138), mask=logo)
-        background.paste(x, (710, 427), mask=x)
-        background.paste(image3, (0, 0), mask=image3)
+
+        # دمج الطبقات
+        if os.path.isfile("ShahmMusic/Helpers/utils/circle.png"):
+            bg = Image.open("ShahmMusic/Helpers/utils/circle.png")
+            image3 = changeImageSize(1280, 720, bg).convert("RGBA")
+            background.paste(logo, (width + 2, 138), mask=logo)
+            background.paste(x, (710, 427), mask=x)
+            background.paste(image3, (0, 0), mask=image3)
+        else:
+            background.paste(logo, (width + 2, 138), mask=logo)
+            background.paste(x, (710, 427), mask=x)
 
         draw = ImageDraw.Draw(background)
         font = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 45)
-        ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 70)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 30)
-        ImageFont.truetype("ShahmMusic/Helpers/utils/font.ttf", 30)
+
+        # عنوان التشغيل
+        head_text = "STARTED PLAYING"
+        head_w, _ = get_text_size(draw, head_text, font)
+        draw.text(
+            ((1280 - head_w) / 2, 25),
+            head_text,
+            fill="white",
+            stroke_width=3,
+            stroke_fill="grey",
+            font=font,
+        )
+
+        # عنوان الأغنية
         para = textwrap.wrap(title, width=32)
-        try:
+        if len(para) > 0 and para[0]:
+            text_w, _ = get_text_size(draw, para[0], font)
             draw.text(
-                (450, 25),
-                f"STARTED PLAYING",
+                ((1280 - text_w) / 2, 530),
+                para[0],
                 fill="white",
-                stroke_width=3,
-                stroke_fill="grey",
+                stroke_width=1,
+                stroke_fill="white",
                 font=font,
             )
-            if para[0]:
-                text_w, text_h = draw.textsize(f"{para[0]}", font=font)
-                draw.text(
-                    ((1280 - text_w) / 2, 530),
-                    f"{para[0]}",
-                    fill="white",
-                    stroke_width=1,
-                    stroke_fill="white",
-                    font=font,
-                )
-            if para[1]:
-                text_w, text_h = draw.textsize(f"{para[1]}", font=font)
-                draw.text(
-                    ((1280 - text_w) / 2, 580),
-                    f"{para[1]}",
-                    fill="white",
-                    stroke_width=1,
-                    stroke_fill="white",
-                    font=font,
-                )
-        except:
-            pass
-        text_w, text_h = draw.textsize(f"Duration: {duration} Mins", font=arial)
+        if len(para) > 1 and para[1]:
+            text_w, _ = get_text_size(draw, para[1], font)
+            draw.text(
+                ((1280 - text_w) / 2, 580),
+                para[1],
+                fill="white",
+                stroke_width=1,
+                stroke_fill="white",
+                font=font,
+            )
+
+        # مدة الأغنية
+        dur_text = f"Duration: {duration} Mins"
+        text_w, _ = get_text_size(draw, dur_text, arial)
         draw.text(
             ((1280 - text_w) / 2, 660),
-            f"Duration: {duration} Mins",
+            dur_text,
             fill="white",
             font=arial,
         )
-        try:
-            os.remove(f"cache/thumb{videoid}.png")
-        except:
-            pass
+
+        # تنظيف الملفات المؤقتة
+        for temp_file in [f"cache/thumb{videoid}.png", f"cache/chop{videoid}.png", f"cache/cropped{videoid}.png"]:
+            if os.path.isfile(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception:
+                    pass
+
         background.save(f"cache/{videoid}_{user_id}.png")
         return f"cache/{videoid}_{user_id}.png"
+
     except Exception as e:
         LOGGER.error(e)
         return FAILED
@@ -179,29 +206,21 @@ async def gen_thumb(videoid, user_id):
 async def gen_qthumb(videoid, user_id):
     if os.path.isfile(f"cache/que{videoid}_{user_id}.png"):
         return f"cache/que{videoid}_{user_id}.png"
+
     url = f"https://www.youtube.com/watch?v={videoid}"
     try:
         results = VideosSearch(url, limit=1)
         for result in (await results.next())["result"]:
             try:
                 title = result["title"]
-                title = re.sub("\W+", " ", title)
-                title = title.title()
-            except:
+                title = re.sub(r"\W+", " ", title).strip().title()
+            except Exception:
                 title = "Unsupported Title"
             try:
                 duration = result["duration"]
-            except:
+            except Exception:
                 duration = "Unknown"
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-            try:
-                result["viewCount"]["short"]
-            except:
-                pass
-            try:
-                result["channel"]["name"]
-            except:
-                pass
 
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail) as resp:
@@ -211,11 +230,16 @@ async def gen_qthumb(videoid, user_id):
                     await f.close()
 
         try:
+            resample = Image.Resampling.LANCZOS
+        except AttributeError:
+            resample = Image.ANTIALIAS
+
+        try:
             wxy = await app.download_media(
                 (await app.get_users(user_id)).photo.big_file_id,
                 file_name=f"{user_id}.jpg",
             )
-        except:
+        except Exception:
             wxy = await app.download_media(
                 (await app.get_users(BOT_ID)).photo.big_file_id,
                 file_name=f"{BOT_ID}.jpg",
@@ -232,16 +256,12 @@ async def gen_qthumb(videoid, user_id):
         x = f.resize((107, 107))
 
         youtube = Image.open(f"cache/thumb{videoid}.png")
-        bg = Image.open(f"ShahmMusic/Helpers/utils/circle.png")
+        
         image1 = changeImageSize(1280, 720, youtube)
         image2 = image1.convert("RGBA")
         background = image2.filter(filter=ImageFilter.BoxBlur(30))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.6)
-
-        image3 = changeImageSize(1280, 720, bg)
-        image5 = image3.convert("RGBA")
-        Image.alpha_composite(background, image5).save(f"cache/temp{videoid}.png")
 
         Xcenter = youtube.width / 2
         Ycenter = youtube.height / 2
@@ -250,8 +270,9 @@ async def gen_qthumb(videoid, user_id):
         x2 = Xcenter + 250
         y2 = Ycenter + 250
         logo = youtube.crop((x1, y1, x2, y2))
-        logo.thumbnail((520, 520), Image.ANTIALIAS)
+        logo.thumbnail((520, 520), resample)
         logo.save(f"cache/chop{videoid}.png")
+
         if not os.path.isfile(f"cache/cropped{videoid}.png"):
             im = Image.open(f"cache/chop{videoid}.png").convert("RGBA")
             add_corners(im)
@@ -259,64 +280,79 @@ async def gen_qthumb(videoid, user_id):
 
         crop_img = Image.open(f"cache/cropped{videoid}.png")
         logo = crop_img.convert("RGBA")
-        logo.thumbnail((365, 365), Image.ANTIALIAS)
+        logo.thumbnail((365, 365), resample)
         width = int((1280 - 365) / 2)
-        background = Image.open(f"cache/temp{videoid}.png")
-        background.paste(logo, (width + 2, 138), mask=logo)
-        background.paste(x, (710, 427), mask=x)
-        background.paste(image3, (0, 0), mask=image3)
+
+        if os.path.isfile("ShahmMusic/Helpers/utils/circle.png"):
+            bg = Image.open("ShahmMusic/Helpers/utils/circle.png")
+            image3 = changeImageSize(1280, 720, bg).convert("RGBA")
+            background.paste(logo, (width + 2, 138), mask=logo)
+            background.paste(x, (710, 427), mask=x)
+            background.paste(image3, (0, 0), mask=image3)
+        else:
+            background.paste(logo, (width + 2, 138), mask=logo)
+            background.paste(x, (710, 427), mask=x)
 
         draw = ImageDraw.Draw(background)
         font = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 45)
-        ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 70)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 30)
-        ImageFont.truetype("ShahmMusic/Helpers/utils/font.ttf", 30)
+
+        # عنوان قائمة الانتظار
+        head_text = "ADDED TO QUEUE"
+        head_w, _ = get_text_size(draw, head_text, font)
+        draw.text(
+            ((1280 - head_w) / 2, 25),
+            head_text,
+            fill="white",
+            stroke_width=5,
+            stroke_fill="black",
+            font=font,
+        )
+
+        # عنوان الأغنية
         para = textwrap.wrap(title, width=32)
-        try:
+        if len(para) > 0 and para[0]:
+            text_w, _ = get_text_size(draw, para[0], font)
             draw.text(
-                (455, 25),
-                "ADDED TO QUEUE",
+                ((1280 - text_w) / 2, 530),
+                para[0],
                 fill="white",
-                stroke_width=5,
-                stroke_fill="black",
+                stroke_width=1,
+                stroke_fill="white",
                 font=font,
             )
-            if para[0]:
-                text_w, text_h = draw.textsize(f"{para[0]}", font=font)
-                draw.text(
-                    ((1280 - text_w) / 2, 530),
-                    f"{para[0]}",
-                    fill="white",
-                    stroke_width=1,
-                    stroke_fill="white",
-                    font=font,
-                )
-            if para[1]:
-                text_w, text_h = draw.textsize(f"{para[1]}", font=font)
-                draw.text(
-                    ((1280 - text_w) / 2, 580),
-                    f"{para[1]}",
-                    fill="white",
-                    stroke_width=1,
-                    stroke_fill="white",
-                    font=font,
-                )
-        except:
-            pass
-        text_w, text_h = draw.textsize(f"Duration: {duration} Mins", font=arial)
+        if len(para) > 1 and para[1]:
+            text_w, _ = get_text_size(draw, para[1], font)
+            draw.text(
+                ((1280 - text_w) / 2, 580),
+                para[1],
+                fill="white",
+                stroke_width=1,
+                stroke_fill="white",
+                font=font,
+            )
+
+        # مدة الأغنية
+        dur_text = f"Duration: {duration} Mins"
+        text_w, _ = get_text_size(draw, dur_text, arial)
         draw.text(
             ((1280 - text_w) / 2, 660),
-            f"Duration: {duration} Mins",
+            dur_text,
             fill="white",
             font=arial,
         )
 
-        try:
-            os.remove(f"cache/thumb{videoid}.png")
-        except:
-            pass
+        # تنظيف الملفات المؤقتة
+        for temp_file in [f"cache/thumb{videoid}.png", f"cache/chop{videoid}.png", f"cache/cropped{videoid}.png"]:
+            if os.path.isfile(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception:
+                    pass
+
         background.save(f"cache/que{videoid}_{user_id}.png")
         return f"cache/que{videoid}_{user_id}.png"
+
     except Exception as e:
         LOGGER.error(e)
         return FAILED

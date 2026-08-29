@@ -4,6 +4,7 @@ from pyrogram.types import Message
 
 from ShahmMusic import SUDOERS, app
 from ShahmMusic.Helpers.active import get_active_chats
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Helpers.inline import close_key
 
 
@@ -27,8 +28,9 @@ async def activevc(_, message: Message):
     if not text:
         await mystic.edit_text("⌔︙ لا يـوجد مكالمات في الوقت الحالي")
     else:
-        await mystic.edit_text(
+        avc_msg = await mystic.edit_text(
             f"**قائمة المكالمات الشغالة :**\n\n{text}",
             reply_markup=close_key,
             disable_web_page_preview=True,
         )
+        await apply_styles(avc_msg, close_key)

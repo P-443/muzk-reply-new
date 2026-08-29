@@ -5,6 +5,7 @@ import requests
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 
 from ShahmMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
@@ -56,7 +57,7 @@ async def song(_, message: Message):
                     ]
                 ]
             )
-            await app.send_audio(
+            aud_msg = await app.send_audio(
                 chat_id=message.from_user.id,
                 audio=audio_file,
                 caption=rep,
@@ -65,6 +66,7 @@ async def song(_, message: Message):
                 duration=dur,
                 reply_markup=visit_butt,
             )
+            await apply_styles(aud_msg, visit_butt)
             if message.chat.type != ChatType.PRIVATE:
                 await message.reply_text(
                     "يرجى التحقق من أن المسؤول قد أرسل الأغنية المطلوبة."
@@ -80,10 +82,11 @@ async def song(_, message: Message):
                     ]
                 ]
             )
-            return await m.edit_text(
+            start_msg = await m.edit_text(
                 text="اضغط فوق الزر أدناه وابدأ في تنزيل الأغاني",
                 reply_markup=start_butt,
             )
+            await apply_styles(start_msg, start_butt)
         await m.delete()
     except:
         return await m.edit_text("فشل تحميل الصوت على الخادم")

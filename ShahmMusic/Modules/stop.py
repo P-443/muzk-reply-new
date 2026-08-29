@@ -4,6 +4,7 @@ from pyrogram.types import Message
 
 from ShahmMusic import app, pytgcalls
 from ShahmMusic.Helpers import _clear_, admin_check, close_key
+from ShahmMusic.Helpers.button_style import apply_styles
 
 
 @app.on_message(filters.command(["stop", "end"]) | filters.command(["ايقاف","اسكت"],prefixes= ["/", "!","","#"]) & filters.group)
@@ -19,7 +20,8 @@ async def stop_str(_, message: Message):
     except:
         pass
 
-    return await message.reply_text(
+    stop_msg = await message.reply_text(
         text=f"⌔︙ **تم ايقاف التشغيل** \n \n⌔︙ بواسطة : {message.from_user.mention} ",
         reply_markup=close_key,
     )
+    await apply_styles(stop_msg, close_key)

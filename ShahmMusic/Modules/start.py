@@ -7,6 +7,7 @@ from youtubesearchpython.__future__ import VideosSearch
 import config
 from ShahmMusic import BOT_MENTION, BOT_NAME, app
 from ShahmMusic.Helpers import gp_buttons, pm_buttons
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Helpers.dossier import *
 
 
@@ -53,24 +54,28 @@ async def Shahm_st(_, message: Message):
                     ]
                 )
                 await m.delete()
-                return await app.send_photo(
+                inf_msg = await app.send_photo(
                     message.chat.id,
                     photo=thumbnail,
                     caption=searched_text,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=key,
                 )
+                return await apply_styles(inf_msg, key)
         else:
-            await message.reply_photo(
+            pm_kb = InlineKeyboardMarkup(pm_buttons)
+            pm_msg = await message.reply_photo(
                 photo=config.START_IMG,
                 caption=PM_START_TEXT.format(
                     message.from_user.first_name,
                     BOT_MENTION,
                 ),
-                reply_markup=InlineKeyboardMarkup(pm_buttons),
+                reply_markup=pm_kb,
             )
+            await apply_styles(pm_msg, pm_kb)
     else:
-        await message.reply_photo(
+        gp_kb = InlineKeyboardMarkup(gp_buttons)
+        gp_msg = await message.reply_photo(
             photo=config.START_IMG,
             caption=START_TEXT.format(
                 message.from_user.first_name,
@@ -78,5 +83,6 @@ async def Shahm_st(_, message: Message):
                 message.chat.title,
                 config.SUPPORT_CHAT,
             ),
-            reply_markup=InlineKeyboardMarkup(gp_buttons),
+            reply_markup=gp_kb,
         )
+        await apply_styles(gp_msg, gp_kb)

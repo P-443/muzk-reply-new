@@ -22,6 +22,7 @@ from ShahmMusic.Helpers import (
     stream_off,
     stream_on,
 )
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Helpers.dossier import *
 from ShahmMusic.Helpers.inline import (
     buttons,
@@ -80,10 +81,11 @@ async def admin_cbs(_, query: CallbackQuery):
             )
         await stream_on(query.message.chat.id)
         await pytgcalls.resume_stream(query.message.chat.id)
-        await query.message.reply_text(
+        rmsg = await query.message.reply_text(
             text=f"⌔︙ تم استئناف التشغيل ⚡\n \n⌔︙ بواسطة : {query.from_user.mention} ",
             reply_markup=close_key,
         )
+        await apply_styles(rmsg, close_key)
 
     elif data == "pause_cb":
         if not await is_streaming(query.message.chat.id):
@@ -92,10 +94,11 @@ async def admin_cbs(_, query: CallbackQuery):
             )
         await stream_off(query.message.chat.id)
         await pytgcalls.pause_stream(query.message.chat.id)
-        await query.message.reply_text(
+        pmsg = await query.message.reply_text(
             text=f"⌔︙ تم ايقاف التشغيل مؤقتاً \n \n⌔︙ بواسطة : {query.from_user.mention} ",
             reply_markup=close_key,
         )
+        await apply_styles(pmsg, close_key)
 
     elif data == "end_cb":
         try:
@@ -103,10 +106,11 @@ async def admin_cbs(_, query: CallbackQuery):
             await pytgcalls.leave_group_call(query.message.chat.id)
         except:
             pass
-        await query.message.reply_text(
+        smsg = await query.message.reply_text(
             text=f"⌔︙ تم ايقاف التشغيل \n \n⌔︙ بواسطة : {query.from_user.mention}",
             reply_markup=close_key,
         )
+        await apply_styles(smsg, close_key)
         await query.message.delete()
 
     elif data == "skip_cb":
@@ -115,10 +119,11 @@ async def admin_cbs(_, query: CallbackQuery):
             try:
                 await _clear_(query.message.chat.id)
                 await pytgcalls.leave_group_call(query.message.chat.id)
-                await query.message.reply_text(
+                nmsg = await query.message.reply_text(
                     text=f"⌔︙ تخطي الاغنية \n \n⌔︙ بواسطة : {query.from_user.mention} \n\n**⌔︙ لا يوجد اغنية تالية في قائمة الانتظار ** {query.message.chat.title}, **ترك دردشة الفيديو**",
                     reply_markup=close_key,
                 )
+                await apply_styles(nmsg, close_key)
                 return await query.message.delete()
             except:
                 return
@@ -143,15 +148,17 @@ async def admin_cbs(_, query: CallbackQuery):
                 return await pytgcalls.leave_group_call(query.message.chat.id)
 
             img = await gen_thumb(videoid, user_id)
-            await query.edit_message_text(
+            emsg = await query.edit_message_text(
                 text=f"⌔︙ تم تخطي التشغيل \n \n⌔︙ بواسطة : {query.from_user.mention}",
                 reply_markup=close_key,
             )
-            return await query.message.reply_photo(
+            await apply_styles(emsg, close_key)
+            skmsg = await query.message.reply_photo(
                 photo=img,
                 caption=f"**⌔︙ بدء تشغيل**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المدة :** `{duration}` دقيقة\n⌔︙ **مطلوبة من :** {req_by}",
                 reply_markup=buttons,
             )
+            await apply_styles(skmsg, buttons)
 
 
 @app.on_callback_query(filters.regex("unban_ass"))
@@ -186,10 +193,11 @@ async def help_menu(_, query: CallbackQuery):
         pass
 
     try:
-        await query.edit_message_text(
+        help_msg = await query.edit_message_text(
             text=f"⌔︙ مرحبا {query.from_user.first_name} \n\n⌔︙ اختر من الازرار في الاسفل ⬇️ ",
             reply_markup=InlineKeyboardMarkup(helpmenu),
         )
+        await apply_styles(help_msg, InlineKeyboardMarkup(helpmenu))
     except Exception as e:
         LOGGER.error(e)
         return
@@ -206,12 +214,15 @@ async def open_hmenu(_, query: CallbackQuery):
     except:
         pass
 
+    hmsg = None
     if cb == "help":
-        await query.edit_message_text(HELP_TEXT, reply_markup=keyboard)
+        hmsg = await query.edit_message_text(HELP_TEXT, reply_markup=keyboard)
     elif cb == "sudo":
-        await query.edit_message_text(HELP_SUDO, reply_markup=keyboard)
+        hmsg = await query.edit_message_text(HELP_SUDO, reply_markup=keyboard)
     elif cb == "owner":
-        await query.edit_message_text(HELP_DEV, reply_markup=keyboard)
+        hmsg = await query.edit_message_text(HELP_DEV, reply_markup=keyboard)
+    if hmsg is not None:
+        await apply_styles(hmsg, keyboard)
 
 
 @app.on_callback_query(filters.regex("Shahm_home"))
@@ -221,12 +232,13 @@ async def home_Shahm(_, query: CallbackQuery):
     except:
         pass
     try:
-        await query.edit_message_text(
+        hm_msg = await query.edit_message_text(
             text=PM_START_TEXT.format(
                 query.from_user.first_name,
                 BOT_MENTION,
             ),
             reply_markup=InlineKeyboardMarkup(pm_buttons),
         )
+        await apply_styles(hm_msg, InlineKeyboardMarkup(pm_buttons))
     except:
         pass

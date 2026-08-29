@@ -2,6 +2,7 @@
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from ShahmMusic.Helpers.downloaders import yt_search
+from ShahmMusic.Helpers.button_style import apply_styles
 
 from ShahmMusic import app
 
@@ -35,10 +36,11 @@ async def ytsearch(_, message: Message):
                 ]
             ]
         )
-        await m.edit_text(
+        s_msg = await m.edit_text(
             text=text,
             reply_markup=key,
             disable_web_page_preview=True,
         )
+        await apply_styles(s_msg, key)
     except Exception as e:
         await message.reply_text(str(e))

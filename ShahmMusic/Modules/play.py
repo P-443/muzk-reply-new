@@ -29,6 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
@@ -67,10 +68,12 @@ async def play(_, message: Message):
                     ]
                 ]
             )
-            return await Shahm.edit_text(
+            unban_msg = await Shahm.edit_text(
                 text=f"⌔︙ {BOT_NAME} الحساب المساعد محظور في {message.chat.title}\n\n⌔︙ الايدي : `{ASS_ID}`\n⌔︙ آلآسم : {ASS_MENTION}\n⌔︙ اليوزر : @{ASS_USERNAME}\n\n⌔︙ الغي حظر الحساب المساعد...",
                 reply_markup=unban_butt,
             )
+            await apply_styles(unban_msg, unban_butt)
+            return
     except UserNotParticipant:
         if message.chat.username:
             invitelink = message.chat.username
@@ -196,11 +199,12 @@ async def play(_, message: Message):
         )
         position = len(Shahmdb.get(message.chat.id))
         qimg = await gen_qthumb(videoid, message.from_user.id)
-        await message.reply_photo(
+        qmsg = await message.reply_photo(
             photo=qimg,
             caption=f"**⌔︙ تمت الإضافة إلى قائمة الانتظار في {position}**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **مطلوب بواسطة :** {ruser}",
             reply_markup=buttons,
         )
+        await apply_styles(qmsg, buttons)
     else:
         stream = AudioPiped(file_path, audio_parameters=HighQualityAudio())
         try:
@@ -226,10 +230,11 @@ async def play(_, message: Message):
         imgt = await gen_thumb(videoid, message.from_user.id)
         await stream_on(message.chat.id)
         await add_active_chat(message.chat.id)
-        await message.reply_photo(
+        pmsg = await message.reply_photo(
             photo=imgt,
             caption=f"**⌔︙ تم التشغيل 🎧**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **بواسطه :** {ruser}",
             reply_markup=buttons,
         )
+        await apply_styles(pmsg, buttons)
 
     return await Shahm.delete()

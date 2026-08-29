@@ -12,6 +12,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pytgcalls.__version__ import __version__ as pytgver
 
 from ShahmMusic import BOT_NAME, SUDOERS, app
+from ShahmMusic.Helpers.button_style import apply_styles
 from ShahmMusic.Modules import ALL_MODULES
 
 
@@ -53,6 +54,17 @@ async def sys_stats(_, message: Message):
     platform_release = platform.release()
     platform_version = platform.version()
 
+    ss_key = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="مسح",
+                    callback_data=f"forceclose abc|{message.from_user.id}",
+                ),
+            ]
+        ]
+    )
+
     await sysrep.edit_text(
         f"""
 ⌔︙ <u>**{BOT_NAME} احصائيات النظام **</u>
@@ -81,14 +93,6 @@ async def sys_stats(_, message: Message):
 **النوى المادية :** {p_core}
 **مجموع النوى :** {t_core}
 **تردد وحدة المعالجة المركزية :** {cpu_freq}""",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        text="مسح",
-                        callback_data=f"forceclose abc|{message.from_user.id}",
-                    ),
-                ]
-            ]
-        ),
+        reply_markup=ss_key,
     )
+    await apply_styles(sysrep, ss_key)

@@ -8,6 +8,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 import config
 from ShahmMusic import BOT_NAME, StartTime, app
 from ShahmMusic.Helpers import get_readable_time
+from ShahmMusic.Helpers.button_style import apply_styles
 
 
 @app.on_message(filters.command("ping") | filters.command(["ب","البنك"],prefixes= ["/", "!","","#"]))
@@ -23,6 +24,17 @@ async def ping_Shahm(_, message: Message):
     resp = (datetime.now() - start).microseconds / 1000
     uptime = get_readable_time((upt))
 
+    pkey = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("الدعم", url=config.SUPPORT_CHAT),
+                InlineKeyboardButton(
+                    "ઽᯓ 「𝑆𝑂𝑈𝑅𝐶𝐸 」، ",
+                    url="https://t.me/VGISV",
+                ),
+            ],
+        ]
+    )
     await hmm.edit_text(
         f"""⌔︙ البنك : `{resp}ᴍs`
 
@@ -32,15 +44,6 @@ async def ping_Shahm(_, message: Message):
 ⌔︙ **الرام :** {mem}
 ⌔︙ **وحدة المعالجة المركزية :** {cpu}
 ⌔︙ **القرص :** {disk}""",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("الدعم", url=config.SUPPORT_CHAT),
-                    InlineKeyboardButton(
-                        "ઽᯓ 「𝑆𝑂𝑈𝑅𝐶𝐸 」، ",
-                        url="https://t.me/VGISV",
-                    ),
-                ],
-            ]
-        ),
+        reply_markup=pkey,
     )
+    await apply_styles(hmm, pkey)

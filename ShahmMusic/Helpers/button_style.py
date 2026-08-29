@@ -42,13 +42,16 @@ _API = f"{_BASE}/bot{_TOKEN}/editMessageReplyMarkup" if _TOKEN else None
 def _style_for(btn: InlineKeyboardButton) -> str:
     """Pick the button color by its callback_data -- every button its own color.
 
-    Primary = blue, secondary = grey, success = green, danger = red.
+    Valid Bot API style values are `primary`, `default`, `success` and `danger`
+    (verified live against the API -- `secondary` is rejected with "Invalid
+    button style specified"). Primary = blue, default = grey, success = green,
+    danger = red.
     """
     cd = str(btn.callback_data or "")
     if cd == "resume_cb":
         return "success"        # ▷ play/resume = green
     if cd == "pause_cb":
-        return "secondary"      # II pause = grey
+        return "default"        # II pause = grey
     if cd == "skip_cb":
         return "primary"        # ‣‣I next = blue
     if cd == "end_cb" or cd == "close" or cd.startswith("forceclose"):
@@ -58,7 +61,7 @@ def _style_for(btn: InlineKeyboardButton) -> str:
     if cd.startswith("Shahm_cb owner"):
         return "danger"         # owner commands = red
     if cd.startswith("Shahm_cb sudo"):
-        return "secondary"      # sudo commands = grey
+        return "default"        # sudo commands = grey
     # everything else (help menu, url links, user buttons) = blue
     return "primary"
 

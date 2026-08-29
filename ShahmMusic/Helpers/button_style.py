@@ -63,9 +63,9 @@ def _to_api_button(btn: InlineKeyboardButton):
     text = btn.text or ""
     if not text.strip():
         # Empty-text spacer/placeholder button (the invisible support/owner
-        # placeholders). The Bot API rejects buttons with empty text, so give
-        # it a zero-width space -- still renders invisible, keyboard parses.
-        text = "​"
+        # placeholders). Drop it entirely -- a zero-width-space stand-in
+        # renders as stray invisible buttons in some clients.
+        return None
     out = {"text": text}
     if btn.url:
         out["url"] = btn.url

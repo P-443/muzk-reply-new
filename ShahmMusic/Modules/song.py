@@ -5,7 +5,7 @@ import requests
 from pyrogram import filters
 from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from ShahmMusic.Helpers.button_style import DOWNLOAD_TAG, GUITAR_TAG, apply_styles
+from ShahmMusic.Helpers.button_style import GUITAR_TAG, apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 
 from ShahmMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
@@ -17,7 +17,7 @@ async def song(_, message: Message):
         await message.delete()
     except:
         pass
-    m = await message.reply_text(f"⌔︙ جارٍ التحميل {DOWNLOAD_TAG}...")
+    m = await message.reply_text("⌔︙ جارٍ التحميل...")
 
     query = "".join(" " + str(i) for i in message.command[1:])
     try:
@@ -38,7 +38,7 @@ async def song(_, message: Message):
             f"فشل إحضار المسار من ʏᴛ-ᴅʟ.\n\n**السبب :** `{ex}`"
         )
 
-    await m.edit_text(f"**⌔︙ يتم التحميل {DOWNLOAD_TAG} **\n\n**⌔︙ من فضلك انتظر")
+    await m.edit_text("**⌔︙ يتم التحميل **\n\n**⌔︙ من فضلك انتظر")
     try:
         audio_file = audio_dl(link)
         rep = f"⌔︙ **العنوان :** [{title[:23]}]({link}) {GUITAR_TAG}\n⌔︙ **المده :** `{duration}`\n⌔︙ ** بواسطة :** {BOT_MENTION}"

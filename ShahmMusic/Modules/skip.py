@@ -6,7 +6,6 @@ from pytgcalls.types import AudioPiped, HighQualityAudio
 from ShahmMusic import BOT_USERNAME, app, Shahmdb, pytgcalls
 from ShahmMusic.Helpers import _clear_, admin_check, buttons, close_key, gen_thumb
 from ShahmMusic.Helpers.button_style import apply_styles
-from ShahmMusic.Helpers.captions import caption_with_started_emoji
 
 
 @app.on_message(filters.command(["skip", "next"]) | filters.command(["تخطي","سكيب","سكب"],prefixes= ["/", "!","","#"]) & filters.group)
@@ -53,13 +52,9 @@ async def skip_str(_, message: Message):
         )
         await apply_styles(tmsg, close_key)
         img = await gen_thumb(videoid, user_id)
-        caption, caption_entities = await caption_with_started_emoji(
-            f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
-        )
         skmsg = await message.reply_photo(
             photo=img,
-            caption=caption,
-            caption_entities=caption_entities,
+            caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
             reply_markup=buttons,
         )
         await apply_styles(skmsg, buttons)

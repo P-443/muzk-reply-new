@@ -23,7 +23,6 @@ from ShahmMusic.Helpers import (
     stream_on,
 )
 from ShahmMusic.Helpers.button_style import THUNDER_TAG, apply_styles
-from ShahmMusic.Helpers.captions import caption_with_started_emoji
 from ShahmMusic.Helpers.dossier import *
 from ShahmMusic.Helpers.inline import (
     buttons,
@@ -154,13 +153,9 @@ async def admin_cbs(_, query: CallbackQuery):
                 reply_markup=close_key,
             )
             await apply_styles(emsg, close_key)
-            caption, caption_entities = await caption_with_started_emoji(
-                f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
-            )
             skmsg = await query.message.reply_photo(
                 photo=img,
-                caption=caption,
-                caption_entities=caption_entities,
+                caption=f"**⌔︙ Sᴛᴀʀᴛᴇᴅ Sᴛʀᴇᴀᴍɪɴɢ |**\n\n⌔︙ **Tɪᴛʟᴇ :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **Dᴜʀᴀᴛɪᴏɴ :** `{duration}` ᴍɪɴs\n⌔︙ **Rᴇǫᴜᴇsᴛᴇᴅ ʙʏ :** {req_by}",
                 reply_markup=buttons,
             )
             await apply_styles(skmsg, buttons)

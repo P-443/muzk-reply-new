@@ -12,11 +12,16 @@ from config import FAILED, OWNER_ID
 from ShahmMusic import BOT_ID, LOGGER, app
 
 
-def fix_arabic_text(text):
-    """معالجة النص العربي وتحويل الاتجاه بشكل آمن"""
+def fix_arabic_text(text, max_chars=0):
+    """معالجة النص العربي وتحويل الاتجاه مع قص النص الطويل بأمان"""
     if not text:
         return ""
+    
     try:
+        # قص النص لو طويل قبل التشكيل علشان ما يخربش الكلمات
+        if max_chars > 0 and len(text) > max_chars:
+            text = text[:max_chars] + "..."
+            
         # تشكيل وربط الحروف العربية
         reshaped_text = arabic_reshaper.reshape(text)
         # تعديل الاتجاه من اليمين لليسار
@@ -25,24 +30,6 @@ def fix_arabic_text(text):
     except Exception as e:
         LOGGER.error(f"Error shaping arabic text: {e}")
         return text
-
-
-async def download_arabic_font():
-    """تنزيل خط عربي مضمون دعم كامل للرموز وتخزينه محلياً"""
-    font_path = "cache/Cairo-Bold.ttf"
-    if not os.path.exists(font_path):
-        os.makedirs("cache", exist_ok=True)
-        url = "https://github.com/google/fonts/raw/main/ofl/cairo/static/Cairo-Bold.ttf"
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    if resp.status == 200:
-                        f = await aiofiles.open(font_path, mode="wb")
-                        await f.write(await resp.read())
-                        await f.close()
-        except Exception as e:
-            LOGGER.error(f"Failed to download font: {e}")
-    return font_path if os.path.exists(font_path) else "ShahmMusic/Helpers/utils/font2.ttf"
 
 
 def changeImageSize(maxWidth, maxHeight, image):
@@ -132,11 +119,22 @@ async def gen_thumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 4. تحميل الخط العربي المضمن
-        active_font_path = await download_arabic_font()
-        font_title = ImageFont.truetype(active_font_path, 36)
-        font_sub = ImageFont.truetype(active_font_path, 26)
-        font_small = ImageFont.truetype(active_font_path, 22)
+        # 4. تحميل الخط (تأكد من استبداله بملف يدعم العربي كما في الخطوة 1)
+        font_path = "ShahmMusic/Helpers/utils/font2.ttf"
+        
+        # لو ملف الخط مش موجود، نستخدم خط النظام الافتراضي (قد لا يدعم العربي جيداً في اللينكس)
+        if not os.path.exists(font_path):
+             font_path = "arial.ttf" # لبيئة ويندوز لو بتجرب محلي
+             if not os.path.exists(font_path):
+                 font_path = ImageFont.load_default()
+
+        try:
+            font_title = ImageFont.truetype(font_path, 36)
+            font_sub = ImageFont.truetype(font_path, 26)
+            font_small = ImageFont.truetype(font_path, 22)
+        except:
+             # Fallback لو فشل تحميل الخط المخصص
+             font_title = font_sub = font_small = ImageFont.load_default()
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -144,15 +142,14 @@ async def gen_thumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
         draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # تجهيز عنوان الأغنية مع تحويل العربي
-        short_title = title[:24] + "..." if len(title) > 24 else title
-        formatted_title = fix_arabic_text(short_title)
+        # تجهيز عنوان الأغنية مع تحويل العربي وقصه بحد أقصى 24 حرف
+        formatted_title = fix_arabic_text(title, max_chars=24)
         
         # طباعة العنوان العربي
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
         # Requested by
-        req_text = fix_arabic_text(f"Requested by {user_tag}")
+        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=30)
         draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
         # 5. شريط التقديم
@@ -240,10 +237,18 @@ async def gen_qthumb(videoid, user_id):
 
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        active_font_path = await download_arabic_font()
-        font_title = ImageFont.truetype(active_font_path, 36)
-        font_sub = ImageFont.truetype(active_font_path, 26)
-        font_small = ImageFont.truetype(active_font_path, 22)
+        font_path = "ShahmMusic/Helpers/utils/font2.ttf"
+        if not os.path.exists(font_path):
+             font_path = "arial.ttf"
+             if not os.path.exists(font_path):
+                 font_path = ImageFont.load_default()
+
+        try:
+            font_title = ImageFont.truetype(font_path, 36)
+            font_sub = ImageFont.truetype(font_path, 26)
+            font_small = ImageFont.truetype(font_path, 22)
+        except:
+             font_title = font_sub = font_small = ImageFont.load_default()
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
@@ -251,11 +256,10 @@ async def gen_qthumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FF9800")
         draw_g.text((x_text + 25, 80), "ADDED TO QUEUE", fill="#FF9800", font=font_small)
 
-        short_title = title[:24] + "..." if len(title) > 24 else title
-        formatted_title = fix_arabic_text(short_title)
+        formatted_title = fix_arabic_text(title, max_chars=24)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
-        req_text = fix_arabic_text(f"Requested by {user_tag}")
+        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=30)
         draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
         bar_x1 = x_text

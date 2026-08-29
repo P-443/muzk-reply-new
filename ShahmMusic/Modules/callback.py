@@ -22,7 +22,7 @@ from ShahmMusic.Helpers import (
     stream_off,
     stream_on,
 )
-from ShahmMusic.Helpers.button_style import apply_styles
+from ShahmMusic.Helpers.button_style import THUNDER_TAG, apply_styles
 from ShahmMusic.Helpers.dossier import *
 from ShahmMusic.Helpers.inline import (
     buttons,
@@ -82,7 +82,7 @@ async def admin_cbs(_, query: CallbackQuery):
         await stream_on(query.message.chat.id)
         await pytgcalls.resume_stream(query.message.chat.id)
         rmsg = await query.message.reply_text(
-            text=f"⌔︙ تم استئناف التشغيل ⚡\n \n⌔︙ بواسطة : {query.from_user.mention} ",
+            text=f"⌔︙ تم استئناف التشغيل {THUNDER_TAG}\n \n⌔︙ بواسطة : {query.from_user.mention} ",
             reply_markup=close_key,
         )
         await apply_styles(rmsg, close_key)
@@ -176,7 +176,7 @@ async def unban_ass(_, CallbackQuery):
                 show_alert=True,
             )
         return await CallbackQuery.edit_message_text(
-            f"⌔︙ {ASS_NAME} تم رفع الحظر بنجاح بواسطة {CallbackQuery.from_user.mention}.\n\⌔︙ البوت يعمل الان ⚡"
+            f"⌔︙ {ASS_NAME} تم رفع الحظر بنجاح بواسطة {CallbackQuery.from_user.mention}.\n\⌔︙ البوت يعمل الان {THUNDER_TAG}"
         )
     else:
         return await CallbackQuery.answer(

@@ -29,7 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
-from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, apply_styles
+from ShahmMusic.Helpers.button_style import CHECK_TAG, GUITAR_TAG, HEADPHONE_TAG, THUNDER_TAG, apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
@@ -159,7 +159,7 @@ async def play(_, message: Message):
     else:
         if len(message.command) < 2:
             return await Shahm.edit_text(f"⌔︙ اكتب اسم الاغنية {HEADPHONE_TAG}")
-        await Shahm.edit_text("⚡️")
+        await Shahm.edit_text(THUNDER_TAG)
         query = message.text.split(None, 1)[1]
         try:
             results = yt_search(query, 1)

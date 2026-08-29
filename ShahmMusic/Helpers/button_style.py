@@ -23,11 +23,13 @@ HEADPHONE_EMOJI_ID = "6007938409857815902"  # 🎧
 GUITAR_EMOJI_ID = "5348242647351834121"     # 🎸
 DOWNLOAD_EMOJI_ID = "5877307202888273539"   # 📥
 CHECK_EMOJI_ID = "5260726538302660868"      # ✅
+THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
 DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">📥</emoji>'
 CHECK_TAG = f'<emoji id="{CHECK_EMOJI_ID}">✅</emoji>'
+THUNDER_TAG = f'<emoji id="{THUNDER_EMOJI_ID}">⚡</emoji>'
 
 _TOKEN = config.BOT_TOKEN
 _BASE = (config.BOT_API_URL if hasattr(config, "BOT_API_URL") else None) or "https://api.telegram.org"

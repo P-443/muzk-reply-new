@@ -4,13 +4,13 @@ from pyrogram.types import Message
 
 from ShahmMusic import SUDOERS, app
 from ShahmMusic.Helpers.active import get_active_chats
-from ShahmMusic.Helpers.button_style import apply_styles
+from ShahmMusic.Helpers.button_style import THUNDER_TAG, apply_styles
 from ShahmMusic.Helpers.inline import close_key
 
 
 @app.on_message(filters.command("activevc") | filters.command(["المكالمات","النشطه"],prefixes= ["/", "!","","#"]) & SUDOERS)
 async def activevc(_, message: Message):
-    mystic = await message.reply_text("⌔︙ جاري جلب المكالمات ⚡")
+    mystic = await message.reply_text(f"⌔︙ جاري جلب المكالمات {THUNDER_TAG}")
     chats = await get_active_chats()
     text = ""
     j = 0

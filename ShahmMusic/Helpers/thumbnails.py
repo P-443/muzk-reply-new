@@ -92,41 +92,53 @@ async def gen_thumb(videoid, user_id):
         except AttributeError:
             resample = Image.ANTIALIAS
 
-        # 1. تجهيز صورة العضو/المطور في شكل مربع بإطار
-        xy = Image.open(wxy).convert("RGBA")
-        x = xy.resize((107, 107), resample)
+        # 1. تجهيز صورة الأغنية/الفيديو كدائرة صغيرة (التي توضع بالأسفل)
+        yt_img = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
+        min_dim_yt = min(yt_img.width, yt_img.height)
+        crop_x_yt = (yt_img.width - min_dim_yt) // 2
+        crop_y_yt = (yt_img.height - min_dim_yt) // 2
+        yt_cropped = yt_img.crop((crop_x_yt, crop_y_yt, crop_x_yt + min_dim_yt, crop_y_yt + min_dim_yt))
+        
+        mask_circle = Image.new("L", (640, 640), 0)
+        draw_circle = ImageDraw.Draw(mask_circle)
+        draw_circle.ellipse((0, 0, 640, 640), fill=255)
+        
+        c = np.array(yt_cropped.resize((640, 640), resample))
+        d = np.array(mask_circle)
+        e = np.dstack((c[:, :, :3], d))
+        x = Image.fromarray(e).resize((107, 107), resample)
 
-        # تجهيز خلفية العرض المظلمة
-        youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
-        image1 = changeImageSize(1280, 720, youtube)
+        # 2. تجهيز خلفية العرض المظلمة
+        image1 = changeImageSize(1280, 720, yt_img)
         background = image1.filter(filter=ImageFilter.BoxBlur(40))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.35)
 
-        # تصميم الغلاف المربع الكبير على اليسار بالإطار الأبيض
+        # 3. تجهيز صورة المطور/المستخدم كمربع كبير بإطار أبيض جهة اليسار
+        user_img = Image.open(wxy).convert("RGBA")
         sq_size = 400
-        min_dim = min(youtube.width, youtube.height)
-        crop_x = (youtube.width - min_dim) // 2
-        crop_y = (youtube.height - min_dim) // 2
-        thumb_sq = youtube.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim))
-        thumb_sq = thumb_sq.resize((sq_size, sq_size), resample)
+        min_dim_u = min(user_img.width, user_img.height)
+        crop_x_u = (user_img.width - min_dim_u) // 2
+        crop_y_u = (user_img.height - min_dim_u) // 2
+        user_sq = user_img.crop((crop_x_u, crop_y_u, crop_x_u + min_dim_u, crop_y_u + min_dim_u))
+        user_sq = user_sq.resize((sq_size, sq_size), resample)
 
         border_size = sq_size + 20
         bordered_thumb = Image.new("RGBA", (border_size, border_size), "white")
-        bordered_thumb.paste(thumb_sq, (10, 10))
+        bordered_thumb.paste(user_sq, (10, 10))
 
-        # دمج الغلاف المربع جهة اليسار
+        # دمج صورة المطور المربعة جهة اليسار
         background.paste(bordered_thumb, (90, 150))
 
-        # دمج صورة المطور المربعة في المربع الصغير على زاوية الغلاف
-        background.paste(x, (90 + border_size - 60, 150 + border_size - 60))
+        # دمج صورة الفيديو/الأغنية الدائرية في الزاوية السفلى من الغلاف
+        background.paste(x, (90 + border_size - 60, 150 + border_size - 60), mask=x)
 
         draw = ImageDraw.Draw(background)
         font_title = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 40)
         font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 32)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 26)
 
-        # 2. كتابة النصوص
+        # 4. كتابة النصوص
         x_text = 560
         
         # العنوان العلوي
@@ -141,7 +153,7 @@ async def gen_thumb(videoid, user_id):
         if len(para) > 1 and para[1]:
             draw.text((x_text, y_title + 50), para[1], fill="white", font=font_title)
 
-        # 3. شريط التقدم التفاعلي (Progress Bar)
+        # 5. شريط التقدم التفاعلي (Progress Bar)
         bar_x1 = x_text
         bar_y = 480
         bar_x2 = 1180
@@ -216,31 +228,43 @@ async def gen_qthumb(videoid, user_id):
         except AttributeError:
             resample = Image.ANTIALIAS
 
-        # 1. تجهيز صورة العضو/المطور كمربع
-        xy = Image.open(wxy).convert("RGBA")
-        x = xy.resize((107, 107), resample)
+        # 1. تجهيز صورة الأغنية كدائرة صغيرة بالأسفل
+        yt_img = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
+        min_dim_yt = min(yt_img.width, yt_img.height)
+        crop_x_yt = (yt_img.width - min_dim_yt) // 2
+        crop_y_yt = (yt_img.height - min_dim_yt) // 2
+        yt_cropped = yt_img.crop((crop_x_yt, crop_y_yt, crop_x_yt + min_dim_yt, crop_y_yt + min_dim_yt))
+        
+        mask_circle = Image.new("L", (640, 640), 0)
+        draw_circle = ImageDraw.Draw(mask_circle)
+        draw_circle.ellipse((0, 0, 640, 640), fill=255)
+        
+        c = np.array(yt_cropped.resize((640, 640), resample))
+        d = np.array(mask_circle)
+        e = np.dstack((c[:, :, :3], d))
+        x = Image.fromarray(e).resize((107, 107), resample)
 
-        youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
-        image1 = changeImageSize(1280, 720, youtube)
+        # 2. تجهيز الخلفية
+        image1 = changeImageSize(1280, 720, yt_img)
         background = image1.filter(filter=ImageFilter.BoxBlur(40))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.35)
 
+        # 3. صورة المطور كمربع كبير بإطار أبيض
+        user_img = Image.open(wxy).convert("RGBA")
         sq_size = 400
-        min_dim = min(youtube.width, youtube.height)
-        crop_x = (youtube.width - min_dim) // 2
-        crop_y = (youtube.height - min_dim) // 2
-        thumb_sq = youtube.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim))
-        thumb_sq = thumb_sq.resize((sq_size, sq_size), resample)
+        min_dim_u = min(user_img.width, user_img.height)
+        crop_x_u = (user_img.width - min_dim_u) // 2
+        crop_y_u = (user_img.height - min_dim_u) // 2
+        user_sq = user_img.crop((crop_x_u, crop_y_u, crop_x_u + min_dim_u, crop_y_u + min_dim_u))
+        user_sq = user_sq.resize((sq_size, sq_size), resample)
 
         border_size = sq_size + 20
         bordered_thumb = Image.new("RGBA", (border_size, border_size), "white")
-        bordered_thumb.paste(thumb_sq, (10, 10))
+        bordered_thumb.paste(user_sq, (10, 10))
 
         background.paste(bordered_thumb, (90, 150))
-
-        # دمج صورة المطور المربعة في الزاوية
-        background.paste(x, (90 + border_size - 60, 150 + border_size - 60))
+        background.paste(x, (90 + border_size - 60, 150 + border_size - 60), mask=x)
 
         draw = ImageDraw.Draw(background)
         font_title = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 40)
@@ -252,7 +276,6 @@ async def gen_qthumb(videoid, user_id):
         draw.text((x_text, 160), "ADDED TO QUEUE", fill="#FF9800", font=arial)
         draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=font_sub)
 
-        # اسم الأغنية ينزل في الأسفل فوق الشريط
         para = textwrap.wrap(title, width=24)
         y_title = 310
         if len(para) > 0 and para[0]:

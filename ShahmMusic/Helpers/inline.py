@@ -5,7 +5,7 @@ import config
 from ShahmMusic import BOT_USERNAME
 
 close_key = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(text="◈ اغلاق ◈", callback_data="close")]]
+    [[InlineKeyboardButton(text="اغلاق", callback_data="close")]]
 )
 
 
@@ -26,11 +26,11 @@ buttons = InlineKeyboardMarkup(
 pm_buttons = [
     [
         InlineKeyboardButton(
-            text="◈ اضفني لمجموعتك ◈",
+            text="اضفني لمجموعتك",
             url=f"https://t.me/{BOT_USERNAME}?startgroup=true",
         )
     ],
-    [InlineKeyboardButton(text="◈ الاوامر ◈", callback_data="Shahm_help")],
+    [InlineKeyboardButton(text="الاوامر", callback_data="Shahm_help")],
     [
         InlineKeyboardButton(text="", url=config.SUPPORT_CHANNEL),
         InlineKeyboardButton(text="", url=config.SUPPORT_CHAT),
@@ -39,7 +39,7 @@ pm_buttons = [
         InlineKeyboardButton(
             text="", url="https://t.me/KOK0KK"
         ),
-        InlineKeyboardButton(text="◈ مالك البوت ◈", user_id=config.OWNER_ID),
+        InlineKeyboardButton(text="مالك البوت", user_id=config.OWNER_ID),
     ],
 ]
 
@@ -47,19 +47,19 @@ pm_buttons = [
 gp_buttons = [
     [
         InlineKeyboardButton(
-            text="◈ اضفني لمجموعتك ◈",
+            text="اضفني لمجموعتك",
             url=f"https://t.me/{BOT_USERNAME}?startgroup=true",
         )
     ],
     [
-        InlineKeyboardButton(text="◈ السورس ◈", url=config.SUPPORT_CHANNEL),
-        InlineKeyboardButton(text="◈ التحديثات ◈", url=config.SUPPORT_CHAT),
+        InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHANNEL),
+        InlineKeyboardButton(text="التحديثات", url=config.SUPPORT_CHAT),
     ],
     [
         InlineKeyboardButton(
-            text="◈ المطور ◈", url="https://t.me/KOK0KK"
+            text="المطور", url="https://t.me/KOK0KK"
         ),
-        InlineKeyboardButton(text="◈ مالك البوت ◈", user_id=config.OWNER_ID),
+        InlineKeyboardButton(text="مالك البوت", user_id=config.OWNER_ID),
     ],
 ]
 
@@ -67,25 +67,25 @@ gp_buttons = [
 helpmenu = [
     [
         InlineKeyboardButton(
-            text="◈ الاوامر ◈",
+            text="الاوامر",
             callback_data="Shahm_cb help",
         )
     ],
     [
-        InlineKeyboardButton(text="◈ اوامࢪ المطور ◈", callback_data="Shahm_cb sudo"),
-        InlineKeyboardButton(text="◈ اوامر المالك ◈", callback_data="Shahm_cb owner"),
+        InlineKeyboardButton(text="اوامࢪ المطور", callback_data="Shahm_cb sudo"),
+        InlineKeyboardButton(text="اوامر المالك", callback_data="Shahm_cb owner"),
     ],
     [
-        InlineKeyboardButton(text="◈ عودة ◈", callback_data="Shahm_home"),
-        InlineKeyboardButton(text="◈ اغلاق ◈", callback_data="close"),
+        InlineKeyboardButton(text="عودة", callback_data="Shahm_home"),
+        InlineKeyboardButton(text="اغلاق", callback_data="close"),
     ],
 ]
 
 
 help_back = [
-    [InlineKeyboardButton(text="◈ السورس ◈", url=config.SUPPORT_CHAT)],
+    [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
-        InlineKeyboardButton(text="◈ عودة ◈", callback_data="Shahm_help"),
-        InlineKeyboardButton(text="◈ اغلاق ◈", callback_data="close"),
+        InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
+        InlineKeyboardButton(text="اغلاق", callback_data="close"),
     ],
 ]

@@ -20,27 +20,27 @@ def changeImageSize(maxWidth, maxHeight, image):
     return image.resize((newWidth, newHeight))
 
 
+def add_corners(im):
+    bigsize = (im.size[0] * 3, im.size[1] * 3)
+    mask = Image.new("L", bigsize, 0)
+    ImageDraw.Draw(mask).ellipse((0, 0) + bigsize, fill=255)
+    
+    try:
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample = Image.ANTIALIAS
+
+    mask = mask.resize(im.size, resample)
+    mask = ImageChops.darker(mask, im.split()[-1])
+    im.putalpha(mask)
+
+
 def get_text_size(draw, text, font):
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
         return bbox[2] - bbox[0], bbox[3] - bbox[1]
     except AttributeError:
         return draw.textsize(text, font=font)
-
-
-def make_square_user_photo(image_path, size=(107, 107), radius=15):
-    """تجهيز صورة المطور/المستخدم في شكل مربع بحواف منحنية خفيفة"""
-    im = Image.open(image_path).convert("RGBA")
-    im = im.resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS)
-    
-    # إنشاء ماسك مربع بحواف منحنية
-    mask = Image.new("L", size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
-    
-    output = Image.new("RGBA", size, (0, 0, 0, 0))
-    output.paste(im, (0, 0), mask=mask)
-    return output
 
 
 async def gen_thumb(videoid, user_id):
@@ -60,6 +60,14 @@ async def gen_thumb(videoid, user_id):
             except:
                 duration = "Unknown"
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+            try:
+                result["viewCount"]["short"]
+            except:
+                pass
+            try:
+                result["channel"]["name"]
+            except:
+                pass
 
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail) as resp:
@@ -79,55 +87,61 @@ async def gen_thumb(videoid, user_id):
                 file_name=f"{BOT_ID}.jpg",
             )
 
-        # تجهيز صورة المطور/المستخدم كمربع
-        user_sq_photo = make_square_user_photo(wxy, size=(110, 110), radius=12)
+        try:
+            resample = Image.Resampling.LANCZOS
+        except AttributeError:
+            resample = Image.ANTIALIAS
 
-        # تجهيز الخلفية
+        # 1. تجهيز صورة العضو/المطور في شكل مربع بإطار
+        xy = Image.open(wxy).convert("RGBA")
+        x = xy.resize((107, 107), resample)
+
+        # تجهيز خلفية العرض المظلمة
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         image1 = changeImageSize(1280, 720, youtube)
         background = image1.filter(filter=ImageFilter.BoxBlur(40))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.35)
 
-        # الغلاف المربع الكبير جهة اليسار
+        # تصميم الغلاف المربع الكبير على اليسار بالإطار الأبيض
         sq_size = 400
         min_dim = min(youtube.width, youtube.height)
         crop_x = (youtube.width - min_dim) // 2
         crop_y = (youtube.height - min_dim) // 2
         thumb_sq = youtube.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim))
-        resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
         thumb_sq = thumb_sq.resize((sq_size, sq_size), resample)
 
         border_size = sq_size + 20
         bordered_thumb = Image.new("RGBA", (border_size, border_size), "white")
         bordered_thumb.paste(thumb_sq, (10, 10))
 
+        # دمج الغلاف المربع جهة اليسار
         background.paste(bordered_thumb, (90, 150))
-        
-        # دمج صورة المطور المربعة في الزاوية السفلى من الغلاف
-        background.paste(user_sq_photo, (90 + border_size - 60, 150 + border_size - 60), mask=user_sq_photo)
+
+        # دمج صورة المطور المربعة في المربع الصغير على زاوية الغلاف
+        background.paste(x, (90 + border_size - 60, 150 + border_size - 60))
 
         draw = ImageDraw.Draw(background)
         font_title = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 40)
-        font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 30)
+        font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 32)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 26)
 
+        # 2. كتابة النصوص
         x_text = 560
-
-        # العنوان
-        draw.text((x_text, 160), "STARTED PLAYING", fill="#00E5FF", font=font_sub)
-        draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=arial)
-
-        # اسم الأغنية تحت (مكان Telegram Files)
-        para = textwrap.wrap(title, width=24)
-        y_title_start = 310
         
-        if len(para) > 0 and para[0]:
-            draw.text((x_text, y_title_start), para[0], fill="white", font=font_title)
-        if len(para) > 1 and para[1]:
-            draw.text((x_text, y_title_start + 50), para[1], fill="white", font=font_title)
+        # العنوان العلوي
+        draw.text((x_text, 160), "STARTED PLAYING", fill="#00E5FF", font=arial)
+        draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=font_sub)
 
-        # شريط التقدم
+        # اسم الأغنية ينزل في المنطقة السفلى فوق شريط التقدم
+        para = textwrap.wrap(title, width=24)
+        y_title = 310
+        if len(para) > 0 and para[0]:
+            draw.text((x_text, y_title), para[0], fill="white", font=font_title)
+        if len(para) > 1 and para[1]:
+            draw.text((x_text, y_title + 50), para[1], fill="white", font=font_title)
+
+        # 3. شريط التقدم التفاعلي (Progress Bar)
         bar_x1 = x_text
         bar_y = 480
         bar_x2 = 1180
@@ -136,6 +150,7 @@ async def gen_thumb(videoid, user_id):
         mid_x = bar_x1 + int((bar_x2 - bar_x1) * 0.6)
         draw.ellipse([(mid_x - 10, bar_y - 10), (mid_x + 10, bar_y + 10)], fill="white")
 
+        # التوقيتات تحت الشريط
         draw.text((bar_x1, bar_y + 15), "00:00", fill="white", font=arial)
         dur_text = f"{duration} Mins"
         dur_w, _ = get_text_size(draw, dur_text, arial)
@@ -169,6 +184,14 @@ async def gen_qthumb(videoid, user_id):
             except:
                 duration = "Unknown"
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+            try:
+                result["viewCount"]["short"]
+            except:
+                pass
+            try:
+                result["channel"]["name"]
+            except:
+                pass
 
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail) as resp:
@@ -188,8 +211,14 @@ async def gen_qthumb(videoid, user_id):
                 file_name=f"{BOT_ID}.jpg",
             )
 
-        # تجهيز صورة المطور/المستخدم كمربع
-        user_sq_photo = make_square_user_photo(wxy, size=(110, 110), radius=12)
+        try:
+            resample = Image.Resampling.LANCZOS
+        except AttributeError:
+            resample = Image.ANTIALIAS
+
+        # 1. تجهيز صورة العضو/المطور كمربع
+        xy = Image.open(wxy).convert("RGBA")
+        x = xy.resize((107, 107), resample)
 
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         image1 = changeImageSize(1280, 720, youtube)
@@ -202,7 +231,6 @@ async def gen_qthumb(videoid, user_id):
         crop_x = (youtube.width - min_dim) // 2
         crop_y = (youtube.height - min_dim) // 2
         thumb_sq = youtube.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim))
-        resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
         thumb_sq = thumb_sq.resize((sq_size, sq_size), resample)
 
         border_size = sq_size + 20
@@ -210,27 +238,27 @@ async def gen_qthumb(videoid, user_id):
         bordered_thumb.paste(thumb_sq, (10, 10))
 
         background.paste(bordered_thumb, (90, 150))
-        
-        # دمج صورة المطور المربعة
-        background.paste(user_sq_photo, (90 + border_size - 60, 150 + border_size - 60), mask=user_sq_photo)
+
+        # دمج صورة المطور المربعة في الزاوية
+        background.paste(x, (90 + border_size - 60, 150 + border_size - 60))
 
         draw = ImageDraw.Draw(background)
         font_title = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 40)
-        font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 30)
+        font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 32)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 26)
 
         x_text = 560
 
-        draw.text((x_text, 160), "ADDED TO QUEUE", fill="#FF9800", font=font_sub)
-        draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=arial)
+        draw.text((x_text, 160), "ADDED TO QUEUE", fill="#FF9800", font=arial)
+        draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=font_sub)
 
+        # اسم الأغنية ينزل في الأسفل فوق الشريط
         para = textwrap.wrap(title, width=24)
-        y_title_start = 310
-        
+        y_title = 310
         if len(para) > 0 and para[0]:
-            draw.text((x_text, y_title_start), para[0], fill="white", font=font_title)
+            draw.text((x_text, y_title), para[0], fill="white", font=font_title)
         if len(para) > 1 and para[1]:
-            draw.text((x_text, y_title_start + 50), para[1], fill="white", font=font_title)
+            draw.text((x_text, y_title + 50), para[1], fill="white", font=font_title)
 
         bar_x1 = x_text
         bar_y = 480

@@ -21,7 +21,7 @@ from ShahmMusic import LOGGER
 # Pyrogram renders <emoji id="..."> as the real premium emoji (MessageEntityCustomEmoji).
 HEADPHONE_EMOJI_ID = "6007938409857815902"  # 🎧
 GUITAR_EMOJI_ID = "5348242647351834121"     # 🎸
-DOWNLOAD_EMOJI_ID = "5877307202888273539"   # 📥
+DOWNLOAD_EMOJI_ID = "5444961234933806330"   # ⬇️
 CHECK_EMOJI_ID = "5260726538302660868"      # ✅
 THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 SMILE_EMOJI_ID = "5222108309795908493"      # 😊
@@ -29,7 +29,7 @@ STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started 
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
-DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">📥</emoji>'
+DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">⬇️</emoji>'
 CHECK_TAG = f'<emoji id="{CHECK_EMOJI_ID}">✅</emoji>'
 THUNDER_TAG = f'<emoji id="{THUNDER_EMOJI_ID}">⚡</emoji>'
 SMILE_TAG = f'<emoji id="{SMILE_EMOJI_ID}">😊</emoji>'

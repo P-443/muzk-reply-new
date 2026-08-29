@@ -5,7 +5,7 @@ from pytgcalls.types import AudioPiped, HighQualityAudio, Update
 
 from ShahmMusic import BOT_ID, BOT_USERNAME, app, app2, Shahmdb, pytgcalls
 from ShahmMusic.Helpers import _clear_, buttons, gen_thumb
-from ShahmMusic.Helpers.button_style import apply_styles
+from ShahmMusic.Helpers.button_style import DOWNLOAD_TAG, apply_styles
 
 welcome = 20
 close = 30
@@ -59,7 +59,7 @@ async def on_stream_end(pytgcalls, update: Update):
     else:
         process = await app.send_message(
             chat_id=chat_id,
-            text="⌔︙ تنزيل المسار التالي من قائمة الانتظار...",
+            text=f"⌔︙ تنزيل المسار التالي من قائمة الانتظار {DOWNLOAD_TAG}...",
         )
         title = get[0]["title"]
         duration = get[0]["duration"]

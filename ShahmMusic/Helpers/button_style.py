@@ -17,8 +17,15 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from ShahmMusic import LOGGER
 
-# The 🎧 custom emoji the owner asked to put on every button.
-HEADPHONE_EMOJI_ID = "6007938409857815902"
+# Premium custom emojis the owner provided, for use inside message texts.
+# Pyrogram renders <emoji id="..."> as the real premium emoji (MessageEntityCustomEmoji).
+HEADPHONE_EMOJI_ID = "6007938409857815902"  # 🎧
+GUITAR_EMOJI_ID = "5348242647351834121"     # 🎸
+DOWNLOAD_EMOJI_ID = "5877307202888273539"   # 📥
+
+HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
+GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
+DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">📥</emoji>'
 
 _TOKEN = config.BOT_TOKEN
 _BASE = (config.BOT_API_URL if hasattr(config, "BOT_API_URL") else None) or "https://api.telegram.org"
@@ -26,45 +33,58 @@ _BASE = _BASE.rstrip("/")
 _API = f"{_BASE}/bot{_TOKEN}/editMessageReplyMarkup" if _TOKEN else None
 
 
-def _style_for(btn: InlineKeyboardButton) -> tuple:
-    """Pick (style, icon) for a button by its callback_data.
+def _style_for(btn: InlineKeyboardButton) -> str:
+    """Pick the button color by its callback_data -- every button its own color.
 
-    Primary = blue, success = green, danger = red, secondary = grey.
+    Primary = blue, secondary = grey, success = green, danger = red.
     """
     cd = str(btn.callback_data or "")
-    if cd == "close" or cd == "end_cb" or cd.startswith("forceclose"):
-        return "danger", HEADPHONE_EMOJI_ID
+    if cd == "resume_cb":
+        return "success"        # ▷ play/resume = green
+    if cd == "pause_cb":
+        return "secondary"      # II pause = grey
+    if cd == "skip_cb":
+        return "primary"        # ‣‣I next = blue
+    if cd == "end_cb" or cd == "close" or cd.startswith("forceclose"):
+        return "danger"         # stop/close = red
     if cd.startswith("unban_assistant"):
-        return "success", HEADPHONE_EMOJI_ID
-    # everything else (resume/pause/skip, help menu, url links, user buttons)
-    return "primary", HEADPHONE_EMOJI_ID
+        return "success"        # unban = green
+    if cd.startswith("Shahm_cb owner"):
+        return "danger"         # owner commands = red
+    if cd.startswith("Shahm_cb sudo"):
+        return "secondary"      # sudo commands = grey
+    # everything else (help menu, url links, user buttons) = blue
+    return "primary"
 
 
-def _to_api_button(btn: InlineKeyboardButton) -> dict:
+def _to_api_button(btn: InlineKeyboardButton):
     out = {"text": btn.text or ""}
-    if btn.url is not None:
+    if btn.url:
         out["url"] = btn.url
     elif getattr(btn, "user_id", None) is not None:
         out["user_id"] = int(btn.user_id)
     elif btn.callback_data is not None:
         out["callback_data"] = str(btn.callback_data)
+    else:
+        # Text-only or an empty spacer button (empty url etc.) -- Telegram's
+        # Bot API rejects those, so drop the button instead.
+        return None
     # switch_inline_query / web_app / login_url aren't used by this bot.
 
-    # Color + custom emoji icon on every labeled button. Empty spacer buttons
-    # (the invisible support/developer placeholders) stay bare.
+    # Color on every labeled button. Empty spacer buttons (the invisible
+    # support/developer placeholders) stay plain.
     if btn.text:
-        style, icon = _style_for(btn)
-        out["style"] = style
-        out["icon_custom_emoji_id"] = icon
+        out["style"] = _style_for(btn)
     return out
 
 
 def to_botapi_keyboard(markup: InlineKeyboardMarkup) -> dict:
-    return {
-        "inline_keyboard": [
-            [_to_api_button(b) for b in row] for row in markup.inline_keyboard
-        ]
-    }
+    rows = []
+    for row in markup.inline_keyboard:
+        parsed = [b for b in (_to_api_button(x) for x in row) if b is not None]
+        if parsed:
+            rows.append(parsed)
+    return {"inline_keyboard": rows}
 
 
 async def apply_styles(message: Message, markup=None) -> None:

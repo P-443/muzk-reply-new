@@ -29,7 +29,7 @@ from ShahmMusic import (
     pytgcalls,
 )
 from ShahmMusic.Helpers.active import add_active_chat, is_active_chat, stream_on
-from ShahmMusic.Helpers.button_style import apply_styles
+from ShahmMusic.Helpers.button_style import GUITAR_TAG, HEADPHONE_TAG, apply_styles
 from ShahmMusic.Helpers.downloaders import audio_dl, yt_search
 from ShahmMusic.Helpers.errors import DurationLimitError
 from ShahmMusic.Helpers.gets import get_file_name, get_url
@@ -44,7 +44,7 @@ from ShahmMusic.Helpers.thumbnails import gen_qthumb, gen_thumb
     & ~filters.via_bot
 )
 async def play(_, message: Message):
-    Shahm = await message.reply_text("** جاري التشغيل...**")
+    Shahm = await message.reply_text(f"** جاري التشغيل {GUITAR_TAG}...**")
     try:
         await message.delete()
     except:
@@ -158,7 +158,7 @@ async def play(_, message: Message):
         file_path = audio_dl(url)
     else:
         if len(message.command) < 2:
-            return await Shahm.edit_text("⌔︙ اكتب اسم الاغنية 🎧")
+            return await Shahm.edit_text(f"⌔︙ اكتب اسم الاغنية {HEADPHONE_TAG}")
         await Shahm.edit_text("⚡️")
         query = message.text.split(None, 1)[1]
         try:
@@ -201,7 +201,7 @@ async def play(_, message: Message):
         qimg = await gen_qthumb(videoid, message.from_user.id)
         qmsg = await message.reply_photo(
             photo=qimg,
-            caption=f"**⌔︙ تمت الإضافة إلى قائمة الانتظار في {position}**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **مطلوب بواسطة :** {ruser}",
+            caption=f"**⌔︙ تمت الإضافة إلى قائمة الانتظار في {position}** {HEADPHONE_TAG}\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **مطلوب بواسطة :** {ruser}",
             reply_markup=buttons,
         )
         await apply_styles(qmsg, buttons)
@@ -232,7 +232,7 @@ async def play(_, message: Message):
         await add_active_chat(message.chat.id)
         pmsg = await message.reply_photo(
             photo=imgt,
-            caption=f"**⌔︙ تم التشغيل 🎧**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **بواسطه :** {ruser}",
+            caption=f"**⌔︙ تم التشغيل {HEADPHONE_TAG}**\n\n⌔︙ **العنوان :** [{title[:27]}](https://t.me/{BOT_USERNAME}?start=info_{videoid})\n⌔︙ **المده :** `{duration}` دقيقه\n⌔︙ **بواسطه :** {ruser}",
             reply_markup=buttons,
         )
         await apply_styles(pmsg, buttons)

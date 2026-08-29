@@ -92,14 +92,14 @@ async def gen_thumb(videoid, user_id):
         except AttributeError:
             resample = Image.ANTIALIAS
 
-        # 1. تجهيز خلفية العرض المظلمة من صورة اليوتيوب
+        # 1. تجهيز خلفية العرض المظلمة
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         image1 = changeImageSize(1280, 720, youtube)
         background = image1.filter(filter=ImageFilter.BoxBlur(40))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.35)
 
-        # 2. تجهيز صورة المطور/المستخدم المربعة الكبيرة مع إطار أبيض
+        # 2. تجهيز صورة المستخدم/المطور المربعة الكبيرة
         user_img = Image.open(wxy).convert("RGBA")
         sq_size = 400
         min_dim_u = min(user_img.width, user_img.height)
@@ -112,7 +112,6 @@ async def gen_thumb(videoid, user_id):
         bordered_thumb = Image.new("RGBA", (border_size, border_size), "white")
         bordered_thumb.paste(user_sq, (10, 10))
 
-        # دمج صورة المطور المربعة جهة اليسار
         background.paste(bordered_thumb, (90, 150))
 
         draw = ImageDraw.Draw(background)
@@ -120,14 +119,13 @@ async def gen_thumb(videoid, user_id):
         font_sub = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 32)
         arial = ImageFont.truetype("ShahmMusic/Helpers/utils/font2.ttf", 26)
 
-        # 3. كتابة النصوص
+        # 3. كتابة النصوص ورسم اسم الأغنية
         x_text = 560
         
-        # العنوان العلوي
         draw.text((x_text, 160), "STARTED PLAYING", fill="#00E5FF", font=arial)
         draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=font_sub)
 
-        # اسم الأغنية ينزل في المنطقة السفلى فوق شريط التقدم
+        # إضافة اسم الأغنية وتجزئته في حال كان طويلاً
         para = textwrap.wrap(title, width=24)
         y_title = 310
         if len(para) > 0 and para[0]:
@@ -135,7 +133,7 @@ async def gen_thumb(videoid, user_id):
         if len(para) > 1 and para[1]:
             draw.text((x_text, y_title + 50), para[1], fill="white", font=font_title)
 
-        # 4. شريط التقدم التفاعلي (Progress Bar)
+        # 4. شريط التقدم التفاعلي
         bar_x1 = x_text
         bar_y = 480
         bar_x2 = 1180
@@ -144,7 +142,6 @@ async def gen_thumb(videoid, user_id):
         mid_x = bar_x1 + int((bar_x2 - bar_x1) * 0.6)
         draw.ellipse([(mid_x - 10, bar_y - 10), (mid_x + 10, bar_y + 10)], fill="white")
 
-        # التوقيتات تحت الشريط
         draw.text((bar_x1, bar_y + 15), "00:00", fill="white", font=arial)
         dur_text = f"{duration} Mins"
         dur_w, _ = get_text_size(draw, dur_text, arial)
@@ -210,14 +207,12 @@ async def gen_qthumb(videoid, user_id):
         except AttributeError:
             resample = Image.ANTIALIAS
 
-        # 1. تجهيز الخلفية
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         image1 = changeImageSize(1280, 720, youtube)
         background = image1.filter(filter=ImageFilter.BoxBlur(40))
         enhancer = ImageEnhance.Brightness(background)
         background = enhancer.enhance(0.35)
 
-        # 2. صورة المطور كمربع كبير بإطار أبيض
         user_img = Image.open(wxy).convert("RGBA")
         sq_size = 400
         min_dim_u = min(user_img.width, user_img.height)
@@ -242,6 +237,7 @@ async def gen_qthumb(videoid, user_id):
         draw.text((x_text, 160), "ADDED TO QUEUE", fill="#FF9800", font=arial)
         draw.text((x_text, 210), "Shahm Music", fill="#CCCCCC", font=font_sub)
 
+        # إضافة اسم الأغنية في قائمة الانتظار
         para = textwrap.wrap(title, width=24)
         y_title = 310
         if len(para) > 0 and para[0]:

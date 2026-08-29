@@ -1,8 +1,9 @@
 
 from ShahmMusic import BOT_NAME
+from ShahmMusic.Helpers.button_style import DOWNLOAD_TAG, GUITAR_TAG
 
-PM_START_TEXT = """**
-𝗦𝗼𝗨𝗥𝗖𝗲 \n\n✧ ¦ مـرحـبا بـك يـا مــعـلـم 😊 \n✧ ¦ اولا كده انا بشغل اغاني في الكول 🎸\n✧ ¦ بـنزل اغاني و فيديوهات بردو يــســطا 📥\n✧ ¦ اضغـط علي زر **اوامـر البـوت**\n𝗦𝗼𝗨𝗥𝗖𝗲 "**
+PM_START_TEXT = f"""**
+𝗦𝗼𝗨𝗥𝗖𝗲 \n\n✧ ¦ مـرحـبا بـك يـا مــعـلـم 😊 \n✧ ¦ اولا كده انا بشغل اغاني في الكول {GUITAR_TAG}\n✧ ¦ بـنزل اغاني و فيديوهات بردو يــســطا {DOWNLOAD_TAG}\n✧ ¦ اضغـط علي زر **اوامـر البـوت**\n𝗦𝗼𝗨𝗥𝗖𝗲 "**
 """
 
 START_TEXT = """

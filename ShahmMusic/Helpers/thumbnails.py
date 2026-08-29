@@ -13,9 +13,12 @@ from ShahmMusic import BOT_ID, LOGGER, app
 
 
 def fix_arabic_text(text):
-    """معالجة النص العربي لربطه وضبط اتجاهه"""
+    """معالجة النص العربي لربط الحروف وضبط الاتجاه بشكل صحيح لـ PIL"""
+    if not text:
+        return ""
     reshaped_text = arabic_reshaper.reshape(text)
-    return get_display(reshaped_text)
+    bidi_text = get_display(reshaped_text)
+    return bidi_text
 
 
 def changeImageSize(maxWidth, maxHeight, image):
@@ -27,7 +30,6 @@ def changeImageSize(maxWidth, maxHeight, image):
 
 
 def make_rounded_crop(img, radius=25):
-    """قص الصورة بحواف دائرية ناعمة"""
     mask = Image.new("L", img.size, 0)
     draw = ImageDraw.Draw(mask)
     draw.rounded_rectangle([(0, 0), img.size], radius=radius, fill=255)
@@ -53,7 +55,6 @@ async def gen_thumb(videoid, user_id):
         for result in (await results.next())["result"]:
             try:
                 title = result["title"]
-                title = re.sub(r"[^\w\s\u0600-\u06FF]+", " ", title).strip()
             except:
                 title = "Unsupported Title"
             try:
@@ -69,7 +70,7 @@ async def gen_thumb(videoid, user_id):
                     await f.write(await resp.read())
                     await f.close()
 
-        # 1. جلب صورة مالك البوت (المطور) حصراً باستخدام OWNER_ID
+        # جلب صورة المطور حصراً
         try:
             owner_user = await app.get_users(OWNER_ID)
             wxy = await app.download_media(
@@ -77,13 +78,11 @@ async def gen_thumb(videoid, user_id):
                 file_name=f"owner_{OWNER_ID}.jpg",
             )
         except Exception:
-            # في حال عدم وجود صورة للمطور يتم جلب صورة البوت كبديل
             wxy = await app.download_media(
                 (await app.get_users(BOT_ID)).photo.big_file_id,
                 file_name=f"{BOT_ID}.jpg",
             )
 
-        # جلب اسم المستخدم الشاغل للطلب
         try:
             req_user = await app.get_users(user_id)
             user_tag = f"@{req_user.username}" if req_user.username else req_user.first_name
@@ -92,21 +91,19 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 2. إنشاء الخلفية المضببة من صورة اليوتيوب
+        # 1. إعداد الخلفية من اليوتيوب مع إظهار معالمها (تخفيف الـ Blur إلى 8)
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(35))
-        background = ImageEnhance.Brightness(background).enhance(0.4)
+        background = background.filter(ImageFilter.GaussianBlur(8))
+        background = ImageEnhance.Brightness(background).enhance(0.5)
 
-        # 3. إنشاء الكارت الزجاجي الداخلي (Glass Card)
+        # 2. إنشاء الكارت الزجاجي الشفاف
         card_w, card_h = 1080, 480
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
-        
-        # رسم مستطيل شفاف مع حواف ناعمة وإطار أبيض خفيف
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(255, 255, 255, 30), outline=(255, 255, 255, 60), width=2)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 100), outline=(255, 255, 255, 80), width=2)
 
-        # 4. معالجة صورة المطور/المالك وتصغيرها بحواف دائرية
+        # 3. معالجة صورة المطور
         owner_img = Image.open(wxy).convert("RGBA")
         sq_size = 360
         min_dim = min(owner_img.width, owner_img.height)
@@ -115,51 +112,43 @@ async def gen_thumb(videoid, user_id):
         owner_sq = owner_img.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
         owner_rounded = make_rounded_crop(owner_sq, radius=30)
 
-        # دمج صورة المطور داخل الكارت الزجاجي
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 5. كتابة النصوص داخل الكارت الزجاجي
+        # 4. كتابة النصوص
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
-        font_title = ImageFont.truetype(font_path, 38)
+        font_title = ImageFont.truetype(font_path, 36)
         font_sub = ImageFont.truetype(font_path, 26)
         font_small = ImageFont.truetype(font_path, 22)
 
         draw_g = ImageDraw.Draw(glass)
         x_text = 460
 
-        # نقطة وسطر NOW PLAYING
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
         draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # عنوان الأغنية (يدعم العربي والإنجليزي)
-        formatted_title = fix_arabic_text(title)
-        if len(title) > 22:
-            formatted_title = fix_arabic_text(title[:22] + "...")
-
+        # معالجة عنوان الأغنية (عربي + إنجليزي)
+        short_title = title[:25] + "..." if len(title) > 25 else title
+        formatted_title = fix_arabic_text(short_title)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
-        # Requested by @username
+        # Requested by
         req_text = fix_arabic_text(f"Requested by {user_tag}")
         draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
-        # 6. شريط التقدم (Progress Bar)
+        # 5. شريط التقدم
         bar_x1 = x_text
         bar_y = 310
         bar_x2 = card_w - 60
 
         draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 100), width=6)
-        
-        # الجزء المكتمل من الشريط والكرة
         progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.4)
         draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FFFFFF", width=6)
         draw_g.ellipse([(progress_x - 10, bar_y - 10), (progress_x + 10, bar_y + 10)], fill="#FFFFFF")
 
-        # التوقيت
         draw_g.text((bar_x1, bar_y + 20), "0:00", fill="#FFFFFF", font=font_small)
         dur_w, _ = get_text_size(draw_g, duration, font_small)
         draw_g.text((bar_x2 - dur_w, bar_y + 20), duration, fill="#FFFFFF", font=font_small)
 
-        # دمج الكارت الزجاجي الكامل فوق الخلفية المضببة
         background.paste(glass, (100, 120), mask=glass)
 
         try:
@@ -182,7 +171,6 @@ async def gen_qthumb(videoid, user_id):
         for result in (await results.next())["result"]:
             try:
                 title = result["title"]
-                title = re.sub(r"[^\w\s\u0600-\u06FF]+", " ", title).strip()
             except:
                 title = "Unsupported Title"
             try:
@@ -220,13 +208,13 @@ async def gen_qthumb(videoid, user_id):
 
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(35))
-        background = ImageEnhance.Brightness(background).enhance(0.4)
+        background = background.filter(ImageFilter.GaussianBlur(8))
+        background = ImageEnhance.Brightness(background).enhance(0.5)
 
         card_w, card_h = 1080, 480
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(255, 255, 255, 30), outline=(255, 255, 255, 60), width=2)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 100), outline=(255, 255, 255, 80), width=2)
 
         owner_img = Image.open(wxy).convert("RGBA")
         sq_size = 360
@@ -239,7 +227,7 @@ async def gen_qthumb(videoid, user_id):
         glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
-        font_title = ImageFont.truetype(font_path, 38)
+        font_title = ImageFont.truetype(font_path, 36)
         font_sub = ImageFont.truetype(font_path, 26)
         font_small = ImageFont.truetype(font_path, 22)
 
@@ -249,10 +237,8 @@ async def gen_qthumb(videoid, user_id):
         draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FF9800")
         draw_g.text((x_text + 25, 80), "ADDED TO QUEUE", fill="#FF9800", font=font_small)
 
-        formatted_title = fix_arabic_text(title)
-        if len(title) > 22:
-            formatted_title = fix_arabic_text(title[:22] + "...")
-
+        short_title = title[:25] + "..." if len(title) > 25 else title
+        formatted_title = fix_arabic_text(short_title)
         draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
         req_text = fix_arabic_text(f"Requested by {user_tag}")

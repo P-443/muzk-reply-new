@@ -3,16 +3,19 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from ShahmMusic import BOT_USERNAME
-from ShahmMusic.Helpers.button_style import CLOSE_TEXT
+from ShahmMusic.Helpers.button_style import CLOSE_EMOJI_IDS, CLOSE_TEXT
 
 
 def _close_button(callback="close"):
-    """Close button showing the 3 close emojis (⬅️🚫➡️) as text.
+    """Close button showing all 3 close emojis in one button.
 
-    Telegram only allows one custom emoji per button, so the close emojis are
-    the plain ⬅️🚫➡️ characters. apply_styles still colors it danger/red.
+    Telegram allows only one custom emoji per button, so the first emoji rides
+    as the premium icon (``icon_custom_emoji_id``, rendered by apply_styles in
+    its own icon slot) and the other two stay as text: premium ⬅️ + 🚫 + ➡️.
     """
-    return InlineKeyboardButton(text=CLOSE_TEXT, callback_data=callback)
+    b = InlineKeyboardButton(text=CLOSE_TEXT, callback_data=callback)
+    b._icon_id = CLOSE_EMOJI_IDS[0]
+    return b
 
 
 close_key = InlineKeyboardMarkup(

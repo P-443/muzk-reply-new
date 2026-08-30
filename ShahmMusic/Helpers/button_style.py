@@ -28,10 +28,17 @@ SMILE_EMOJI_ID = "5222108309795908493"      # 😊
 STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started Streaming line
 
 # The owner's 3 premium emojis for the "اغلاق" (close) buttons are premium
-# versions of ⬅️ 🚫 ➡️. Telegram only allows ONE custom emoji per button
+# versions of ⬅️ 🚫 ➡️. Telegram allows only ONE custom emoji per button
 # (icon_custom_emoji_id) and does not render <emoji id> inside button text, so
-# the close buttons carry all 3 as plain text instead.
-CLOSE_TEXT = "⬅️🚫➡️"
+# the close button shows the first emoji as the premium icon (it renders in
+# its own icon slot on the left) and the other two as plain text:
+# premium ⬅️ + 🚫 + ➡️, in one button, with no placeholder text.
+CLOSE_EMOJI_IDS = (
+    "5447389832781264371",  # premium ⬅️ (used as the button icon)
+    "5447647474984449520",  # premium 🚫
+    "5447181973544008180",  # premium ➡️
+)
+CLOSE_TEXT = "🚫➡️"  # the text after the premium ⬅️ icon (no duplicate, no ▪)
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'

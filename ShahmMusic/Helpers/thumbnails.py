@@ -71,6 +71,16 @@ def make_circular_crop(img):
     return result
 
 
+def draw_heart(draw, center, size, color):
+    cx, cy = center
+    pts = []
+    for t in np.linspace(0, 2 * math.pi, 100):
+        x = 16 * (math.sin(t) ** 3)
+        y = -(13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
+        pts.append((cx + x * size / 16, cy + y * size / 16))
+    draw.polygon(pts, fill=color)
+
+
 def get_text_size(draw, text, font):
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -117,84 +127,73 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. إنشاء خلفية سايبر داكنة جداً مع توهج أحمر
+        # 1. خلفية معتعة عالية التوهج
         canvas = Image.new("RGBA", (1280, 720), (8, 8, 12, 255))
-        
-        # صورة اليوتيوب خلفية مع Blur خفيف لإعطاء جو معتم
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
-        bg_yt = changeImageSize(1280, 720, youtube).filter(ImageFilter.GaussianBlur(15))
-        bg_yt = ImageEnhance.Brightness(bg_yt).enhance(0.25)
+        bg_yt = changeImageSize(1280, 720, youtube).filter(ImageFilter.GaussianBlur(18))
+        bg_yt = ImageEnhance.Brightness(bg_yt).enhance(0.20)
         canvas.paste(bg_yt, (0, 0))
 
-        # 2. رسم الإطار الخارجي والحدود المضيئة (Cyber Frame)
+        # 2. الإطار الخارجي النيون المشطوف
         glow_layer = Image.new("RGBA", (1280, 720), (0, 0, 0, 0))
         glow_draw = ImageDraw.Draw(glow_layer)
 
-        # الحدود الخارجية المقطوعة الزوايا
         frame_pts = [
-            (50, 80), (80, 50), (1200, 50), (1230, 80),
-            (1230, 640), (1200, 670), (80, 670), (50, 640)
+            (40, 70), (70, 40), (1210, 40), (1240, 70),
+            (1240, 650), (1210, 680), (70, 680), (40, 650)
         ]
         glow_draw.polygon(frame_pts, outline="#FF1E27", width=4)
-        
-        # طبقة توهج نيون عالية الجودة
-        glow_blur = glow_layer.filter(ImageFilter.GaussianBlur(8))
-        canvas = Image.alpha_composite(canvas, glow_blur)
+        canvas = Image.alpha_composite(canvas, glow_layer.filter(ImageFilter.GaussianBlur(8)))
         
         draw = ImageDraw.Draw(canvas)
         draw.polygon(frame_pts, outline="#FF3B45", width=2)
 
-        # 3. إطار المسدس الكبير (Left Hexagon) لصورة الفيديو
-        hex_center = (290, 310)
-        hex_radius = 210
-
-        # رسم توهج أحمر للمسدس
-        draw_hexagon(draw, hex_center, hex_radius + 8, outline="#FF1E27", width=5)
+        # 3. إطار المسدس الكبير لصورة اليوتيوب
+        hex_center = (280, 310)
+        hex_radius = 200
+        draw_hexagon(draw, hex_center, hex_radius + 8, outline="#FF1E27", width=4)
         draw_hexagon(draw, hex_center, hex_radius + 2, outline="#FFFFFF", width=2)
 
-        # قص وتثبيت صورة اليوتيوب داخل المسدس
         sq_size = hex_radius * 2
         min_dim = min(youtube.width, youtube.height)
         crop_x = (youtube.width - min_dim) // 2
         crop_y = (youtube.height - min_dim) // 2
         yt_sq = youtube.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
-        yt_hex = make_hexagon_crop(yt_sq, hex_radius - 5)
-        
+        yt_hex = make_hexagon_crop(yt_sq, hex_radius - 4)
         canvas.paste(yt_hex, (hex_center[0] - hex_radius, hex_center[1] - hex_radius), mask=yt_hex)
 
-        # 4. المكونات اليمنى (Now Playing + Waveform + Owner Card)
-        # عنوان المقطع
+        # 4. النصوص والخطوط
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
         if not os.path.exists(font_path):
              font_path = ImageFont.load_default()
 
         try:
-            font_title = ImageFont.truetype(font_path, 30)
+            font_title = ImageFont.truetype(font_path, 28)
             font_sub = ImageFont.truetype(font_path, 20)
-            font_small = ImageFont.truetype(font_path, 16)
+            font_small = ImageFont.truetype(font_path, 15)
         except:
              font_title = font_sub = font_small = ImageFont.load_default()
 
-        draw.text((560, 110), "—  NOW PLAYING  —", fill="#FF3B45", font=font_small)
+        # Now Playing Header
+        draw.text((540, 95), "—  NOW PLAYING  —", fill="#FF3B45", font=font_small)
 
-        # صندوق العنوان العائم
-        draw.rounded_rectangle([(550, 140), (1170, 200)], radius=15, fill=(18, 18, 24, 200), outline="#333344", width=2)
+        # Title Box
+        draw.rounded_rectangle([(530, 125), (1190, 185)], radius=15, fill=(18, 18, 24, 210), outline="#2A2A38", width=2)
         formatted_title = fix_arabic_text(title, max_chars=28)
-        draw.text((570, 152), formatted_title, fill="#FFFFFF", font=font_title)
+        draw.text((550, 137), formatted_title, fill="#FFFFFF", font=font_title)
 
-        # الموجات الصوتية (Equalizer)
-        eq_x = 550
-        eq_y = 250
-        np.random.seed(len(title))  # توحيد شكل الموجة حسب اسم الأغنية
-        for i in range(45):
-            h = np.random.randint(8, 35)
-            bar_color = "#FF3B45" if i < 25 else "#555566"
-            draw.line([(eq_x + (i * 13), eq_y - h), (eq_x + (i * 13), eq_y + h)], fill=bar_color, width=4)
+        # Waveform Equalizer
+        eq_x = 530
+        eq_y = 235
+        np.random.seed(len(title))
+        for i in range(48):
+            h = np.random.randint(6, 32)
+            bar_color = "#FF3B45" if i < 28 else "#444455"
+            draw.line([(eq_x + (i * 13), eq_y - h), (eq_x + (i * 13), eq_y + h)], fill=bar_color, width=3)
 
-        # كارت المطور المصغر
-        draw.rounded_rectangle([(550, 290), (1170, 420)], radius=20, fill=(15, 15, 20, 220), outline="#FF1E27", width=2)
+        # كارت المطور السُفلي + أيقونة القلب
+        draw.rounded_rectangle([(530, 275), (1190, 405)], radius=18, fill=(14, 14, 18, 230), outline="#FF1E27", width=2)
         
-        # صورة المطور الدائرية
         owner_img = Image.open(wxy).convert("RGBA")
         dev_sq = 90
         min_dev = min(owner_img.width, owner_img.height)
@@ -203,29 +202,68 @@ async def gen_thumb(videoid, user_id):
         owner_sq = owner_img.crop((dev_crop_x, dev_crop_y, dev_crop_x + min_dev, dev_crop_y + min_dev)).resize((dev_sq, dev_sq), resample)
         owner_circle = make_circular_crop(owner_sq)
 
-        canvas.paste(owner_circle, (570, 310), mask=owner_circle)
-        draw.ellipse([(568, 308), (662, 402)], fill=None, outline="#FF3B45", width=2)
+        canvas.paste(owner_circle, (550, 295), mask=owner_circle)
+        draw.ellipse([(548, 293), (642, 387)], fill=None, outline="#FF3B45", width=2)
 
-        draw.text((680, 318), "BOT DEVELOPER", fill="#888899", font=font_small)
+        draw.text((660, 305), "BOT DEVELOPER", fill="#888899", font=font_small)
         req_text = fix_arabic_text(f"Order: {user_tag}", max_chars=22)
-        draw.text((680, 350), req_text, fill="#FFFFFF", font=font_sub)
+        draw.text((660, 335), req_text, fill="#FFFFFF", font=font_sub)
 
-        # 5. شريط التقديم والأزرار السفلي (Player Control Bar)
-        bar_y = 480
-        draw.line([(100, bar_y), (1180, bar_y)], fill="#333344", width=6)
-        progress_x = 100 + int((1180 - 100) * 0.45)
-        draw.line([(100, bar_y), (progress_x, bar_y)], fill="#FF3B45", width=6)
-        draw.ellipse([(progress_x - 8, bar_y - 8), (progress_x + 8, bar_y + 8)], fill="#FFFFFF", outline="#FF3B45", width=2)
+        # رسم قلب المطور على اليمين inside developer card
+        draw_heart(draw, (1140, 340), 1.2, "#FF1E27")
 
-        draw.text((100, bar_y + 15), "0:01", fill="#FFFFFF", font=font_small)
+        # 5. شريط التشغيل المضيء (Spotify Progress Bar Area)
+        bar_y = 460
+        bar_x1 = 90
+        bar_x2 = 1190
+
+        # خط الخلفية للشريط
+        draw.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill="#2A2A35", width=6)
+        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.42)
+        # الجزء المقطوع باللون الأحمر
+        draw.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FF1E27", width=6)
+        # دائرة المقبض المضيئة
+        draw.ellipse([(progress_x - 8, bar_y - 8), (progress_x + 8, bar_y + 8)], fill="#FFFFFF", outline="#FF1E27", width=2)
+
+        draw.text((bar_x1, bar_y + 12), "0:01", fill="#FFFFFF", font=font_small)
         dur_w, _ = get_text_size(draw, duration, font_small)
-        draw.text((1180 - dur_w, bar_y + 15), duration, fill="#FFFFFF", font=font_small)
+        draw.text((bar_x2 - dur_w, bar_y + 12), duration, fill="#FFFFFF", font=font_small)
 
-        # زر التشغيل/الإيقاف السداسي المركزي في الأسفل
-        draw_hexagon(draw, (640, 570), 38, fill="#121218", outline="#FF3B45", width=3)
-        # خطين pause باللون الأبيض
-        draw.rectangle([(630, 555), (636, 585)], fill="#FFFFFF")
-        draw.rectangle([(644, 555), (650, 585)], fill="#FFFFFF")
+        # 6. شريط أزرار Spotify والتحكم السفلي الكامل (Spotify Lower Dock Panel)
+        draw.rounded_rectangle([(80, 520), (1200, 620)], radius=20, fill=(10, 10, 14, 220), outline="#222230", width=1)
+
+        # شعار Spotify جهة اليسار
+        draw.ellipse([(110, 548), (145, 583)], fill="#FF1E27")
+        draw.arc([(117, 555), (138, 570)], start=200, end=340, fill="#FFFFFF", width=2)
+        draw.arc([(119, 561), (136, 574)], start=200, end=340, fill="#FFFFFF", width=2)
+        draw.text((155, 550), "Listen on", fill="#888899", font=font_small)
+        draw.text((155, 565), "Spotify", fill="#FFFFFF", font=font_sub)
+
+        # أزرار التشغيل المركزية (Shuffle / Prev / Pause Hexagon / Next / Repeat)
+        # Shuffle Icon
+        draw.text((380, 557), "🔀", fill="#FF1E27", font=font_sub)
+        
+        # Prev Icon
+        draw.polygon([(480, 560), (480, 580), (465, 570)], fill="#FFFFFF")
+        draw.rectangle([(462, 560), (465, 580)], fill="#FFFFFF")
+
+        # Pause Center Hexagon (المسدس الأوسط الكبير)
+        draw_hexagon(draw, (640, 570), 34, fill="#121218", outline="#FF1E27", width=3)
+        draw.rectangle([(631, 557), (636, 583)], fill="#FFFFFF")
+        draw.rectangle([(644, 557), (649, 583)], fill="#FFFFFF")
+
+        # Next Icon
+        draw.polygon([(800, 560), (800, 580), (815, 570)], fill="#FFFFFF")
+        draw.rectangle([(815, 560), (818, 580)], fill="#FFFFFF")
+
+        # Repeat Icon
+        draw.text((900, 557), "🔁", fill="#FF1E27", font=font_sub)
+
+        # Volume Slider جهة اليمين
+        draw.text((1020, 558), "🔊", fill="#FFFFFF", font=font_small)
+        draw.line([(1050, 570), (1160, 570)], fill="#333344", width=4)
+        draw.line([(1050, 570), (1120, 570)], fill="#FF1E27", width=4)
+        draw.ellipse([(1116, 566), (1124, 574)], fill="#FFFFFF")
 
         try:
             os.remove(f"cache/thumb{videoid}.png")

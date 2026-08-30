@@ -34,10 +34,14 @@ def changeImageSize(maxWidth, maxHeight, image):
     return image.resize((newWidth, newHeight))
 
 
-def make_circular_crop(img):
-    mask = Image.new("L", img.size, 0)
+def make_diamond_crop(img):
+    """قص الصورة في شكل ماسة / سداسي عصري"""
+    w, h = img.size
+    mask = Image.new("L", (w, h), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0) + img.size, fill=255)
+    # رسم ماسة احترافية
+    points = [(w // 2, 0), (w, h // 2), (w // 2, h), (0, h // 2)]
+    draw.polygon(points, fill=255)
     result = img.copy()
     result.putalpha(mask)
     return result
@@ -89,75 +93,79 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. خلفية الصورة مع ضباب خفيف جداً وإضاءة أوضح
+        # 1. خلفية اليوتيوب واضحة جداً (ضباب 3 فقط)
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(5)) # ضباب خفيف
-        background = ImageEnhance.Brightness(background).enhance(0.65) # خلفية واضحة
+        background = background.filter(ImageFilter.GaussianBlur(3))
+        background = ImageEnhance.Brightness(background).enhance(0.75)
 
-        # 2. الكارت الرئيسي شفاف بإطار ذهبي فخم
-        card_w, card_h = 1080, 480
+        # 2. كارت هيدر فخم وسفلي شفاف مع إضافة خط نيون
+        card_w, card_h = 1120, 520
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
         
-        # خلفية الكارت سوداء شبه شفافة مع حواف ذهبية
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(10, 10, 15, 170), outline="#FFD700", width=3)
+        # خلفية سوداء ناعمة مع إطار نيون فيروزي
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=30, fill=(12, 16, 28, 190), outline="#00F2FE", width=3)
 
-        # 3. قص صورة المطور في شكل دائري بحلقة ذهبية
+        # 3. إدراج صورة اليوتيوب الأصلية داخل كارت أنيق على اليسار
+        yt_card = changeImageSize(360, 240, youtube)
+        yt_crop = Image.new("RGBA", (360, 240), (0, 0, 0, 0))
+        yt_draw = ImageDraw.Draw(yt_crop)
+        yt_draw.rounded_rectangle([(0, 0), (360, 240)], radius=20, fill=(255, 255, 255, 255))
+        yt_crop.paste(yt_card, (0, 0))
+        glass.paste(yt_crop, (50, 50))
+
+        # 4. صورة المطور على شكل ماسة متألقة برابط نيون
         owner_img = Image.open(wxy).convert("RGBA")
-        sq_size = 340
+        sq_size = 180
         min_dim = min(owner_img.width, owner_img.height)
         crop_x = (owner_img.width - min_dim) // 2
         crop_y = (owner_img.height - min_dim) // 2
         owner_sq = owner_img.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
-        owner_circle = make_circular_crop(owner_sq)
+        owner_diamond = make_diamond_crop(owner_sq)
 
-        # إطار ذهبي حول الدائرة
-        glass_draw.ellipse([(58, 68), (412, 422)], fill=None, outline="#FFD700", width=4)
-        glass.paste(owner_circle, (65, 75), mask=owner_circle)
+        # إطار الماسة
+        glass_draw.polygon([(card_w - 140, 40), (card_w - 40, 140), (card_w - 140, 240), (card_w - 240, 140)], outline="#4FACFE", width=4)
+        glass.paste(owner_diamond, (card_w - 230, 50), mask=owner_diamond)
 
-        # 4. تحميل الخطوط
+        # 5. تحميل الخطوط
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
         if not os.path.exists(font_path):
              font_path = ImageFont.load_default()
 
         try:
-            font_title = ImageFont.truetype(font_path, 36)
-            font_sub = ImageFont.truetype(font_path, 26)
-            font_small = ImageFont.truetype(font_path, 22)
+            font_title = ImageFont.truetype(font_path, 34)
+            font_sub = ImageFont.truetype(font_path, 24)
+            font_small = ImageFont.truetype(font_path, 20)
         except:
              font_title = font_sub = font_small = ImageFont.load_default()
 
         draw_g = ImageDraw.Draw(glass)
-        x_text = 450
-        gold_color = "#FFD700"
+        
+        # النصوص والمعلومات
+        draw_g.text((440, 60), "⚡ STREAMING NOW", fill="#00F2FE", font=font_small)
 
-        # عنوان البث
-        draw_g.text((x_text, 80), "NOW PLAYING", fill=gold_color, font=font_small)
+        formatted_title = fix_arabic_text(title, max_chars=22)
+        draw_g.text((440, 105), formatted_title, fill="#FFFFFF", font=font_title)
 
-        # اسم الأغنية بالعربي
-        formatted_title = fix_arabic_text(title, max_chars=24)
-        draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
+        req_text = fix_arabic_text(f"Order by: {user_tag}", max_chars=25)
+        draw_g.text((440, 175), req_text, fill="#A0AABF", font=font_sub)
 
-        # Requested by
-        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=28)
-        draw_g.text((x_text, 205), req_text, fill="#E0E0E0", font=font_sub)
+        # 6. شريط التقدم النيون العريض
+        bar_x1 = 50
+        bar_y = 350
+        bar_x2 = card_w - 50
 
-        # 5. شريط التقدم الذهبي
-        bar_x1 = x_text
-        bar_y = 310
-        bar_x2 = card_w - 60
-
-        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 50), width=6)
-        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.45)
-        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill=gold_color, width=6)
-        draw_g.ellipse([(progress_x - 10, bar_y - 10), (progress_x + 10, bar_y + 10)], fill=gold_color)
+        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 30), width=10)
+        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.50)
+        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#00F2FE", width=10)
+        draw_g.ellipse([(progress_x - 12, bar_y - 12), (progress_x + 12, bar_y + 12)], fill="#FFFFFF", outline="#00F2FE", width=3)
 
         draw_g.text((bar_x1, bar_y + 25), "0:00", fill="#FFFFFF", font=font_small)
         dur_w, _ = get_text_size(draw_g, duration, font_small)
         draw_g.text((bar_x2 - dur_w, bar_y + 25), duration, fill="#FFFFFF", font=font_small)
 
-        background.paste(glass, (100, 120), mask=glass)
+        background.paste(glass, (80, 100), mask=glass)
 
         try:
             os.remove(f"cache/thumb{videoid}.png")
@@ -210,61 +218,67 @@ async def gen_qthumb(videoid, user_id):
 
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
         background = changeImageSize(1280, 720, youtube)
-        background = background.filter(ImageFilter.GaussianBlur(5))
-        background = ImageEnhance.Brightness(background).enhance(0.65)
+        background = background.filter(ImageFilter.GaussianBlur(3))
+        background = ImageEnhance.Brightness(background).enhance(0.75)
 
-        card_w, card_h = 1080, 480
+        card_w, card_h = 1120, 520
         glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
         glass_draw = ImageDraw.Draw(glass)
-        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(10, 10, 15, 170), outline="#FF9800", width=3)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=30, fill=(12, 16, 28, 190), outline="#FF9800", width=3)
+
+        yt_card = changeImageSize(360, 240, youtube)
+        yt_crop = Image.new("RGBA", (360, 240), (0, 0, 0, 0))
+        yt_draw = ImageDraw.Draw(yt_crop)
+        yt_draw.rounded_rectangle([(0, 0), (360, 240)], radius=20, fill=(255, 255, 255, 255))
+        yt_crop.paste(yt_card, (0, 0))
+        glass.paste(yt_crop, (50, 50))
 
         owner_img = Image.open(wxy).convert("RGBA")
-        sq_size = 340
+        sq_size = 180
         min_dim = min(owner_img.width, owner_img.height)
         crop_x = (owner_img.width - min_dim) // 2
         crop_y = (owner_img.height - min_dim) // 2
         owner_sq = owner_img.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
-        owner_circle = make_circular_crop(owner_sq)
+        owner_diamond = make_diamond_crop(owner_sq)
 
-        glass_draw.ellipse([(58, 68), (412, 422)], fill=None, outline="#FF9800", width=4)
-        glass.paste(owner_circle, (65, 75), mask=owner_circle)
+        glass_draw.polygon([(card_w - 140, 40), (card_w - 40, 140), (card_w - 140, 240), (card_w - 240, 140)], outline="#FF9800", width=4)
+        glass.paste(owner_diamond, (card_w - 230, 50), mask=owner_diamond)
 
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
         if not os.path.exists(font_path):
              font_path = ImageFont.load_default()
 
         try:
-            font_title = ImageFont.truetype(font_path, 36)
-            font_sub = ImageFont.truetype(font_path, 26)
-            font_small = ImageFont.truetype(font_path, 22)
+            font_title = ImageFont.truetype(font_path, 34)
+            font_sub = ImageFont.truetype(font_path, 24)
+            font_small = ImageFont.truetype(font_path, 20)
         except:
              font_title = font_sub = font_small = ImageFont.load_default()
 
         draw_g = ImageDraw.Draw(glass)
-        x_text = 450
 
-        draw_g.text((x_text, 80), "ADDED TO QUEUE", fill="#FF9800", font=font_small)
+        draw_g.text((440, 60), "⏳ ADDED TO QUEUE", fill="#FF9800", font=font_small)
 
-        formatted_title = fix_arabic_text(title, max_chars=24)
-        draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
+        formatted_title = fix_arabic_text(title, max_chars=22)
+        draw_g.text((440, 105), formatted_title, fill="#FFFFFF", font=font_title)
 
-        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=28)
-        draw_g.text((x_text, 205), req_text, fill="#E0E0E0", font=font_sub)
+        req_text = fix_arabic_text(f"Order by: {user_tag}", max_chars=25)
+        draw_g.text((440, 175), req_text, fill="#A0AABF", font=font_sub)
 
-        bar_x1 = x_text
-        bar_y = 310
-        bar_x2 = card_w - 60
+        bar_x1 = 50
+        bar_y = 350
+        bar_x2 = card_w - 50
 
-        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 50), width=6)
-        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.45)
-        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FF9800", width=6)
-        draw_g.ellipse([(progress_x - 10, bar_y - 10), (progress_x + 10, bar_y + 10)], fill="#FFFFFF")
+        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 30), width=10)
+        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.50)
+        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FF9800", width=10)
+        draw_g.ellipse([(progress_x - 12, bar_y - 12), (progress_x + 12, bar_y + 12)], fill="#FFFFFF", outline="#FF9800", width=3)
 
         draw_g.text((bar_x1, bar_y + 25), "0:00", fill="#FFFFFF", font=font_small)
         dur_w, _ = get_text_size(draw_g, duration, font_small)
         draw_g.text((bar_x2 - dur_w, bar_y + 25), duration, fill="#FFFFFF", font=font_small)
 
-        background.paste(glass, (100, 120), mask=glass)
+        background.paste(glass, (80, 100), mask=glass)
 
         try:
             os.remove(f"cache/thumb{videoid}.png")

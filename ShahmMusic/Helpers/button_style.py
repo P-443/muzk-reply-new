@@ -27,6 +27,22 @@ THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 SMILE_EMOJI_ID = "5222108309795908493"      # 😊
 STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started Streaming line
 
+# The owner's 3 premium emojis for the "اغلاق" (close) button, shown in order
+# instead of the word "اغلاق". Custom emoji works in button text via the same
+# <emoji id="..."> tag the bot already uses in message texts.
+CLOSE_EMOJI_IDS = (
+    "5447389832781264371",
+    "5447647474984449520",
+    "5447181973544008180",
+)
+# Fallback chars: only visible if a premium emoji can't be fetched (rare).
+# Tell the owner to swap them for the real emoji chars if they care.
+CLOSE_TAG = (
+    f'<emoji id="{CLOSE_EMOJI_IDS[0]}">🔴</emoji>'
+    f'<emoji id="{CLOSE_EMOJI_IDS[1]}">🟠</emoji>'
+    f'<emoji id="{CLOSE_EMOJI_IDS[2]}">🟢</emoji>'
+)
+
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'
 DOWNLOAD_TAG = f'<emoji id="{DOWNLOAD_EMOJI_ID}">⬇️</emoji>'

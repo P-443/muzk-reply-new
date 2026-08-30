@@ -3,9 +3,10 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from ShahmMusic import BOT_USERNAME
+from ShahmMusic.Helpers.button_style import CLOSE_TAG
 
 close_key = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(text="اغلاق", callback_data="close")]]
+    [[InlineKeyboardButton(text=CLOSE_TAG, callback_data="close")]]
 )
 
 
@@ -77,7 +78,7 @@ helpmenu = [
     ],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_home"),
-        InlineKeyboardButton(text="اغلاق", callback_data="close"),
+        InlineKeyboardButton(text=CLOSE_TAG, callback_data="close"),
     ],
 ]
 
@@ -86,6 +87,6 @@ help_back = [
     [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
-        InlineKeyboardButton(text="اغلاق", callback_data="close"),
+        InlineKeyboardButton(text=CLOSE_TAG, callback_data="close"),
     ],
 ]

@@ -3,10 +3,23 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from ShahmMusic import BOT_USERNAME
-from ShahmMusic.Helpers.button_style import CLOSE_TAG
+from ShahmMusic.Helpers.button_style import CLOSE_EMOJI_IDS
+
+
+def _close_button(emoji_id, callback="close"):
+    """Close button carrying a premium emoji icon.
+
+    Pyrogram can't render button icons, so the button carries a ``_icon_id``
+    attribute that apply_styles picks up and sends as ``icon_custom_emoji_id``
+    over the Bot API (the icon renders instead of the "▪" placeholder).
+    """
+    b = InlineKeyboardButton(text="▪", callback_data=callback)
+    b._icon_id = emoji_id
+    return b
+
 
 close_key = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(text=CLOSE_TAG, callback_data="close")]]
+    [[_close_button(CLOSE_EMOJI_IDS[0])]]
 )
 
 
@@ -78,7 +91,7 @@ helpmenu = [
     ],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_home"),
-        InlineKeyboardButton(text=CLOSE_TAG, callback_data="close"),
+        _close_button(CLOSE_EMOJI_IDS[1]),
     ],
 ]
 
@@ -87,6 +100,6 @@ help_back = [
     [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
-        InlineKeyboardButton(text=CLOSE_TAG, callback_data="close"),
+        _close_button(CLOSE_EMOJI_IDS[2]),
     ],
 ]

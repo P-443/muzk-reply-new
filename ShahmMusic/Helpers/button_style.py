@@ -27,20 +27,15 @@ THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 SMILE_EMOJI_ID = "5222108309795908493"      # 😊
 STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started Streaming line
 
-# The owner's 3 premium emojis for the "اغلاق" (close) button, shown in order
-# instead of the word "اغلاق". Custom emoji works in button text via the same
-# <emoji id="..."> tag the bot already uses in message texts.
+# The owner's 3 premium emojis for the "اغلاق" (close) buttons, one per close
+# button in order (close_key, helpmenu close, help_back close). Delivered via
+# the Bot API `icon_custom_emoji_id` field -- the reliable way to put a custom
+# emoji on an inline button. Pyrogram can't render them, so apply_styles
+# carries the icon over the Bot API the same way it carries the button colors.
 CLOSE_EMOJI_IDS = (
     "5447389832781264371",
     "5447647474984449520",
     "5447181973544008180",
-)
-# Fallback chars: only visible if a premium emoji can't be fetched (rare).
-# Tell the owner to swap them for the real emoji chars if they care.
-CLOSE_TAG = (
-    f'<emoji id="{CLOSE_EMOJI_IDS[0]}">🔴</emoji>'
-    f'<emoji id="{CLOSE_EMOJI_IDS[1]}">🟠</emoji>'
-    f'<emoji id="{CLOSE_EMOJI_IDS[2]}">🟢</emoji>'
 )
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
@@ -86,12 +81,18 @@ def _style_for(btn: InlineKeyboardButton) -> str:
 
 def _to_api_button(btn: InlineKeyboardButton):
     text = btn.text or ""
-    if not text.strip():
+    icon = getattr(btn, "_icon_id", None)
+    if not text.strip() and not icon:
         # Empty-text spacer/placeholder button (the invisible support/owner
         # placeholders). Drop it entirely -- a zero-width-space stand-in
         # renders as stray invisible buttons in some clients.
         return None
     out = {"text": text}
+    if icon:
+        # Custom emoji icon on the button (Bot API 7.0+). The icon renders
+        # instead of the first char of the text, so the "▪" placeholder text
+        # disappears and the button is just the owner's premium emoji.
+        out["icon_custom_emoji_id"] = icon
     if btn.url:
         out["url"] = btn.url
     elif getattr(btn, "user_id", None) is not None:

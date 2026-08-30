@@ -3,23 +3,20 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from ShahmMusic import BOT_USERNAME
-from ShahmMusic.Helpers.button_style import CLOSE_EMOJI_IDS
+from ShahmMusic.Helpers.button_style import CLOSE_TEXT
 
 
-def _close_button(emoji_id, callback="close"):
-    """Close button carrying a premium emoji icon.
+def _close_button(callback="close"):
+    """Close button showing the 3 close emojis (⬅️🚫➡️) as text.
 
-    Pyrogram can't render button icons, so the button carries a ``_icon_id``
-    attribute that apply_styles picks up and sends as ``icon_custom_emoji_id``
-    over the Bot API (the icon renders instead of the "▪" placeholder).
+    Telegram only allows one custom emoji per button, so the close emojis are
+    the plain ⬅️🚫➡️ characters. apply_styles still colors it danger/red.
     """
-    b = InlineKeyboardButton(text="▪", callback_data=callback)
-    b._icon_id = emoji_id
-    return b
+    return InlineKeyboardButton(text=CLOSE_TEXT, callback_data=callback)
 
 
 close_key = InlineKeyboardMarkup(
-    [[_close_button(CLOSE_EMOJI_IDS[0])]]
+    [[_close_button()]]
 )
 
 
@@ -91,7 +88,7 @@ helpmenu = [
     ],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_home"),
-        _close_button(CLOSE_EMOJI_IDS[1]),
+        _close_button(),
     ],
 ]
 
@@ -100,6 +97,6 @@ help_back = [
     [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
-        _close_button(CLOSE_EMOJI_IDS[2]),
+        _close_button(),
     ],
 ]

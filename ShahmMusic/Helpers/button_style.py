@@ -27,16 +27,11 @@ THUNDER_EMOJI_ID = "5219943216781995020"    # ⚡
 SMILE_EMOJI_ID = "5222108309795908493"      # 😊
 STARTED_EMOJI_ID = "5974084352349311208"    # the owner's emoji for the Started Streaming line
 
-# The owner's 3 premium emojis for the "اغلاق" (close) buttons, one per close
-# button in order (close_key, helpmenu close, help_back close). Delivered via
-# the Bot API `icon_custom_emoji_id` field -- the reliable way to put a custom
-# emoji on an inline button. Pyrogram can't render them, so apply_styles
-# carries the icon over the Bot API the same way it carries the button colors.
-CLOSE_EMOJI_IDS = (
-    "5447389832781264371",
-    "5447647474984449520",
-    "5447181973544008180",
-)
+# The owner's 3 premium emojis for the "اغلاق" (close) buttons are premium
+# versions of ⬅️ 🚫 ➡️. Telegram only allows ONE custom emoji per button
+# (icon_custom_emoji_id) and does not render <emoji id> inside button text, so
+# the close buttons carry all 3 as plain text instead.
+CLOSE_TEXT = "⬅️🚫➡️"
 
 HEADPHONE_TAG = f'<emoji id="{HEADPHONE_EMOJI_ID}">🎧</emoji>'
 GUITAR_TAG = f'<emoji id="{GUITAR_EMOJI_ID}">🎸</emoji>'

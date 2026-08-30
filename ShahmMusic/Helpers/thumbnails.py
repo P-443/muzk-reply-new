@@ -13,12 +13,18 @@ from ShahmMusic import BOT_ID, LOGGER, app
 
 
 def fix_arabic_text(text, max_chars=0):
+    """معالجة النص العربي وتحويل الاتجاه مع قص النص الطويل بأمان"""
     if not text:
         return ""
+    
     try:
+        # قص النص لو طويل قبل التشكيل علشان ما يخربش الكلمات
         if max_chars > 0 and len(text) > max_chars:
             text = text[:max_chars] + "..."
+            
+        # تشكيل وربط الحروف العربية
         reshaped_text = arabic_reshaper.reshape(text)
+        # تعديل الاتجاه من اليمين لليسار
         bidi_text = get_display(reshaped_text)
         return bidi_text
     except Exception as e:
@@ -34,10 +40,10 @@ def changeImageSize(maxWidth, maxHeight, image):
     return image.resize((newWidth, newHeight))
 
 
-def make_circular_crop(img):
+def make_rounded_crop(img, radius=25):
     mask = Image.new("L", img.size, 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0) + img.size, fill=255)
+    draw.rounded_rectangle([(0, 0), img.size], radius=radius, fill=255)
     result = img.copy()
     result.putalpha(mask)
     return result
@@ -69,6 +75,7 @@ async def gen_thumb(videoid, user_id):
                     await f.write(await resp.read())
                     await f.close()
 
+        # جلب صورة المطور/المالك
         try:
             owner_user = await app.get_users(OWNER_ID)
             wxy = await app.download_media(
@@ -89,78 +96,83 @@ async def gen_thumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        # 1. إنشاء خلفية سوداء بالكامل 1280x720 (Flat Dark Canvas)
-        canvas = Image.new("RGBA", (1280, 720), (12, 12, 16, 255))
-
-        # 2. النص الأيسر: صورة اليوتيوب واضحة جداً بدون Blur
+        # 1. إظهار صورة اليوتيوب في الخلفية
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
-        yt_resized = changeImageSize(600, 720, youtube)
-        
-        # قص الصورة لضبط المقاس ووضعها في الجانب الأيسر
-        yt_crop = yt_resized.crop((0, 0, min(600, yt_resized.width), 720))
-        canvas.paste(yt_crop, (0, 0))
+        background = changeImageSize(1280, 720, youtube)
+        background = background.filter(ImageFilter.GaussianBlur(6))
+        background = ImageEnhance.Brightness(background).enhance(0.55)
 
-        # خط فاصل رأس المظهر الفخم (Neon Crimson Separator)
-        draw = ImageDraw.Draw(canvas)
-        draw.line([(600, 0), (600, 720)], fill="#E50914", width=5)
+        # 2. إنشاء الكارت الزجاجي
+        card_w, card_h = 1080, 480
+        glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
+        glass_draw = ImageDraw.Draw(glass)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 110), outline=(255, 255, 255, 90), width=2)
 
-        # 3. النص الأيمن: صورة المطور على شكل بادتج (Developer Badge) في الزاوية
+        # 3. قص وصورة المطور
         owner_img = Image.open(wxy).convert("RGBA")
-        sq_size = 120
+        sq_size = 360
         min_dim = min(owner_img.width, owner_img.height)
         crop_x = (owner_img.width - min_dim) // 2
         crop_y = (owner_img.height - min_dim) // 2
         owner_sq = owner_img.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
-        owner_circle = make_circular_crop(owner_sq)
+        owner_rounded = make_rounded_crop(owner_sq, radius=30)
 
-        # وضع صورة المطور أسفل اليمين
-        canvas.paste(owner_circle, (1110, 560), mask=owner_circle)
-        draw.ellipse([(1108, 558), (1232, 682)], fill=None, outline="#E50914", width=3)
+        glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
-        # 4. تحميل الخطوط
+        # 4. تحميل الخط (تأكد من استبداله بملف يدعم العربي كما في الخطوة 1)
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
+        
+        # لو ملف الخط مش موجود، نستخدم خط النظام الافتراضي (قد لا يدعم العربي جيداً في اللينكس)
         if not os.path.exists(font_path):
-             font_path = ImageFont.load_default()
+             font_path = "arial.ttf" # لبيئة ويندوز لو بتجرب محلي
+             if not os.path.exists(font_path):
+                 font_path = ImageFont.load_default()
 
         try:
-            font_title = ImageFont.truetype(font_path, 40)
-            font_sub = ImageFont.truetype(font_path, 28)
+            font_title = ImageFont.truetype(font_path, 36)
+            font_sub = ImageFont.truetype(font_path, 26)
             font_small = ImageFont.truetype(font_path, 22)
         except:
+             # Fallback لو فشل تحميل الخط المخصص
              font_title = font_sub = font_small = ImageFont.load_default()
 
-        # 5. كتابة البيانات على الجانب الأيمن النظيف
-        x_start = 650
+        draw_g = ImageDraw.Draw(glass)
+        x_text = 460
 
-        # شريط الحالة
-        draw.text((x_start, 120), "● NOW PLAYING", fill="#E50914", font=font_small)
+        draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FFFFFF")
+        draw_g.text((x_text + 25, 80), "NOW PLAYING", fill="#E0E0E0", font=font_small)
 
-        # اسم المقطع
-        formatted_title = fix_arabic_text(title, max_chars=20)
-        draw.text((x_start, 180), formatted_title, fill="#FFFFFF", font=font_title)
+        # تجهيز عنوان الأغنية مع تحويل العربي وقصه بحد أقصى 24 حرف
+        formatted_title = fix_arabic_text(title, max_chars=24)
+        
+        # طباعة العنوان العربي
+        draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
-        # صاحب الطلب
-        req_text = fix_arabic_text(f"Requested by: {user_tag}", max_chars=24)
-        draw.text((x_start, 260), req_text, fill="#A0A0A0", font=font_sub)
+        # Requested by
+        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=30)
+        draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
-        # 6. شريط التشغيل المودرن
-        bar_y = 420
-        bar_x2 = 1220
+        # 5. شريط التقديم
+        bar_x1 = x_text
+        bar_y = 310
+        bar_x2 = card_w - 60
 
-        draw.line([(x_start, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 40), width=6)
-        progress_x = x_start + int((bar_x2 - x_start) * 0.40)
-        draw.line([(x_start, bar_y), (progress_x, bar_y)], fill="#E50914", width=6)
-        draw.ellipse([(progress_x - 8, bar_y - 8), (progress_x + 8, bar_y + 8)], fill="#FFFFFF")
+        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 100), width=6)
+        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.4)
+        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FFFFFF", width=6)
+        draw_g.ellipse([(progress_x - 10, bar_y - 10), (progress_x + 10, bar_y + 10)], fill="#FFFFFF")
 
-        draw.text((x_start, bar_y + 20), "0:00", fill="#FFFFFF", font=font_small)
-        dur_w, _ = get_text_size(draw, duration, font_small)
-        draw.text((bar_x2 - dur_w, bar_y + 20), duration, fill="#FFFFFF", font=font_small)
+        draw_g.text((bar_x1, bar_y + 20), "0:00", fill="#FFFFFF", font=font_small)
+        dur_w, _ = get_text_size(draw_g, duration, font_small)
+        draw_g.text((bar_x2 - dur_w, bar_y + 20), duration, fill="#FFFFFF", font=font_small)
+
+        background.paste(glass, (100, 120), mask=glass)
 
         try:
             os.remove(f"cache/thumb{videoid}.png")
         except:
             pass
-        canvas.save(f"cache/{videoid}_{user_id}.png")
+        background.save(f"cache/{videoid}_{user_id}.png")
         return f"cache/{videoid}_{user_id}.png"
     except Exception as e:
         LOGGER.error(e)
@@ -205,65 +217,71 @@ async def gen_qthumb(videoid, user_id):
 
         resample = getattr(Image.Resampling, "LANCZOS", Image.ANTIALIAS)
 
-        canvas = Image.new("RGBA", (1280, 720), (12, 12, 16, 255))
-
         youtube = Image.open(f"cache/thumb{videoid}.png").convert("RGBA")
-        yt_resized = changeImageSize(600, 720, youtube)
-        yt_crop = yt_resized.crop((0, 0, min(600, yt_resized.width), 720))
-        canvas.paste(yt_crop, (0, 0))
+        background = changeImageSize(1280, 720, youtube)
+        background = background.filter(ImageFilter.GaussianBlur(6))
+        background = ImageEnhance.Brightness(background).enhance(0.55)
 
-        draw = ImageDraw.Draw(canvas)
-        draw.line([(600, 0), (600, 720)], fill="#FF9800", width=5)
+        card_w, card_h = 1080, 480
+        glass = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
+        glass_draw = ImageDraw.Draw(glass)
+        glass_draw.rounded_rectangle([(0, 0), (card_w, card_h)], radius=35, fill=(0, 0, 0, 110), outline=(255, 255, 255, 90), width=2)
 
         owner_img = Image.open(wxy).convert("RGBA")
-        sq_size = 120
+        sq_size = 360
         min_dim = min(owner_img.width, owner_img.height)
         crop_x = (owner_img.width - min_dim) // 2
         crop_y = (owner_img.height - min_dim) // 2
         owner_sq = owner_img.crop((crop_x, crop_y, crop_x + min_dim, crop_y + min_dim)).resize((sq_size, sq_size), resample)
-        owner_circle = make_circular_crop(owner_sq)
+        owner_rounded = make_rounded_crop(owner_sq, radius=30)
 
-        canvas.paste(owner_circle, (1110, 560), mask=owner_circle)
-        draw.ellipse([(1108, 558), (1232, 682)], fill=None, outline="#FF9800", width=3)
+        glass.paste(owner_rounded, (60, 60), mask=owner_rounded)
 
         font_path = "ShahmMusic/Helpers/utils/font2.ttf"
         if not os.path.exists(font_path):
-             font_path = ImageFont.load_default()
+             font_path = "arial.ttf"
+             if not os.path.exists(font_path):
+                 font_path = ImageFont.load_default()
 
         try:
-            font_title = ImageFont.truetype(font_path, 40)
-            font_sub = ImageFont.truetype(font_path, 28)
+            font_title = ImageFont.truetype(font_path, 36)
+            font_sub = ImageFont.truetype(font_path, 26)
             font_small = ImageFont.truetype(font_path, 22)
         except:
              font_title = font_sub = font_small = ImageFont.load_default()
 
-        x_start = 650
+        draw_g = ImageDraw.Draw(glass)
+        x_text = 460
 
-        draw.text((x_start, 120), "● ADDED TO QUEUE", fill="#FF9800", font=font_small)
+        draw_g.ellipse([(x_text, 88), (x_text + 12, 100)], fill="#FF9800")
+        draw_g.text((x_text + 25, 80), "ADDED TO QUEUE", fill="#FF9800", font=font_small)
 
-        formatted_title = fix_arabic_text(title, max_chars=20)
-        draw.text((x_start, 180), formatted_title, fill="#FFFFFF", font=font_title)
+        formatted_title = fix_arabic_text(title, max_chars=24)
+        draw_g.text((x_text, 130), formatted_title, fill="#FFFFFF", font=font_title)
 
-        req_text = fix_arabic_text(f"Requested by: {user_tag}", max_chars=24)
-        draw.text((x_start, 260), req_text, fill="#A0A0A0", font=font_sub)
+        req_text = fix_arabic_text(f"Requested by {user_tag}", max_chars=30)
+        draw_g.text((x_text, 205), req_text, fill="#CCCCCC", font=font_sub)
 
-        bar_y = 420
-        bar_x2 = 1220
+        bar_x1 = x_text
+        bar_y = 310
+        bar_x2 = card_w - 60
 
-        draw.line([(x_start, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 40), width=6)
-        progress_x = x_start + int((bar_x2 - x_start) * 0.40)
-        draw.line([(x_start, bar_y)], progress_x, bar_y), fill="#FF9800", width=6)
-        draw.ellipse([(progress_x - 8, bar_y - 8), (progress_x + 8, bar_y + 8)], fill="#FFFFFF")
+        draw_g.line([(bar_x1, bar_y), (bar_x2, bar_y)], fill=(255, 255, 255, 100), width=6)
+        progress_x = bar_x1 + int((bar_x2 - bar_x1) * 0.4)
+        draw_g.line([(bar_x1, bar_y), (progress_x, bar_y)], fill="#FFFFFF", width=6)
+        draw_g.ellipse([(progress_x - 10, bar_y - 10), (progress_x + 10, bar_y + 10)], fill="#FFFFFF")
 
-        draw.text((x_start, bar_y + 20), "0:00", fill="#FFFFFF", font=font_small)
-        dur_w, _ = get_text_size(draw, duration, font_small)
-        draw.text((bar_x2 - dur_w, bar_y + 20), duration, fill="#FFFFFF", font=font_small)
+        draw_g.text((bar_x1, bar_y + 20), "0:00", fill="#FFFFFF", font=font_small)
+        dur_w, _ = get_text_size(draw_g, duration, font_small)
+        draw_g.text((bar_x2 - dur_w, bar_y + 20), duration, fill="#FFFFFF", font=font_small)
+
+        background.paste(glass, (100, 120), mask=glass)
 
         try:
             os.remove(f"cache/thumb{videoid}.png")
         except:
             pass
-        canvas.save(f"cache/que{videoid}_{user_id}.png")
+        background.save(f"cache/que{videoid}_{user_id}.png")
         return f"cache/que{videoid}_{user_id}.png"
     except Exception as e:
         LOGGER.error(e)

@@ -28,13 +28,8 @@ def _close_button_icon_only(callback="close"):
 
 
 def _back_button(callback):
-    """Return button showing only the premium ⬅️ icon, no visible text.
-
-    Uses zero-width space as text so only the premium back arrow emoji renders.
-    """
-    b = InlineKeyboardButton(text="‌", callback_data=callback)
-    b._icon_id = CLOSE_EMOJI_IDS[1]  # ⬅️
-    return b
+    """Return button with plain 'عودة' text, no emoji."""
+    return InlineKeyboardButton(text="عودة", callback_data=callback)
 
 
 close_key = InlineKeyboardMarkup(

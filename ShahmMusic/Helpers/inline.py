@@ -27,6 +27,16 @@ def _close_button_icon_only(callback="close"):
     return b
 
 
+def _back_button(callback):
+    """Return button with premium ⬅️ icon + 'عودة' text.
+
+    Uses the back arrow premium emoji as icon alongside the word 'عودة'.
+    """
+    b = InlineKeyboardButton(text="عودة", callback_data=callback)
+    b._icon_id = CLOSE_EMOJI_IDS[1]  # ⬅️
+    return b
+
+
 close_key = InlineKeyboardMarkup(
     [[_close_button()]]
 )
@@ -99,7 +109,7 @@ helpmenu = [
         InlineKeyboardButton(text="اوامر المالك", callback_data="Shahm_cb owner"),
     ],
     [
-        InlineKeyboardButton(text="عودة", callback_data="Shahm_home"),
+        _back_button("Shahm_home"),
         _close_button(),
     ],
 ]
@@ -108,7 +118,7 @@ helpmenu = [
 help_back = [
     [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
-        InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
+        _back_button("Shahm_help"),
         _close_button_icon_only(),
     ],
 ]

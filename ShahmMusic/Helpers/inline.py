@@ -17,6 +17,16 @@ def _close_button(callback="close"):
     return b
 
 
+def _close_button_icon_only(callback="close"):
+    """Close button showing only the premium 🚫 icon, no visible text.
+
+    Uses zero-width space as text so only the premium emoji renders.
+    """
+    b = InlineKeyboardButton(text="‌", callback_data=callback)
+    b._icon_id = CLOSE_EMOJI_IDS[0]
+    return b
+
+
 close_key = InlineKeyboardMarkup(
     [[_close_button()]]
 )
@@ -99,6 +109,6 @@ help_back = [
     [InlineKeyboardButton(text="السورس", url=config.SUPPORT_CHAT)],
     [
         InlineKeyboardButton(text="عودة", callback_data="Shahm_help"),
-        _close_button(),
+        _close_button_icon_only(),
     ],
 ]

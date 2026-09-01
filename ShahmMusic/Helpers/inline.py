@@ -110,7 +110,7 @@ helpmenu = [
     ],
     [
         _back_button("Shahm_home"),
-        _close_button(),
+        _close_button_icon_only(),
     ],
 ]
 

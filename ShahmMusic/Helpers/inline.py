@@ -7,11 +7,10 @@ from ShahmMusic.Helpers.button_style import CLOSE_EMOJI_IDS, CLOSE_TEXT
 
 
 def _close_button(callback="close"):
-    """Close button showing all 3 close emojis in one button.
+    """Close button with premium 🚫 icon + ➡️ text.
 
-    Telegram allows only one custom emoji per button, so the first emoji rides
-    as the premium icon (``icon_custom_emoji_id``, rendered by apply_styles in
-    its own icon slot) and the other two stay as text: premium ⬅️ + 🚫 + ➡️.
+    Uses the second premium emoji as icon and the third as text, resulting
+    in a single button showing 🚫 (premium) + ➡️ (plain).
     """
     b = InlineKeyboardButton(text=CLOSE_TEXT, callback_data=callback)
     b._icon_id = CLOSE_EMOJI_IDS[0]
